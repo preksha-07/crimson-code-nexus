@@ -1,0 +1,23 @@
+[
+  {
+    "id": "unicode_01",
+    "attackType": "Unicode - Normal Identity",
+    "purpose": "Define standard ASCII reference identity.",
+    "input": "admin",
+    "expectedResult": "Standard plain text matching."
+  },
+  {
+    "id": "unicode_02",
+    "attackType": "Unicode - Normalization Variant (NFKD)",
+    "purpose": "Verify if normalization changes a username or matches an existing account (e.g. Kelvin sign \u212a vs K).",
+    "input": "ad\u212amin",
+    "expectedResult": "Should be normalized to 'admin' before evaluation or treated as distinct, avoiding duplicate/shadow account registration."
+  },
+  {
+    "id": "unicode_03",
+    "attackType": "Unicode - Confusable/Look-alike Identity",
+    "purpose": "Verify detection of homograph attacks where Cyrillic look-alike characters mimic Latin letters (e.g. 'а' in Cyrillic U+0430 vs 'a' U+0061).",
+    "input": "\u0430dmin",
+    "expectedResult": "Homograph defense should reject look-alike identities or treat them as completely distinct to prevent user impersonation."
+  }
+]
