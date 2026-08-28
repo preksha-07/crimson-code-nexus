@@ -1,4 +1,4 @@
-# NEXUS API Contract v1 — Scarlet
+# NEXUS API Contract v1 — Scarlet & Cipher
 
 Base URL: `/api`
 
@@ -106,7 +106,6 @@ Relations: `BLOCKS`, `DEPENDS_ON`, `RELATES_TO`, `DUPLICATES`.
 
 `DELETE /api/issues/:issueId/dependencies/:targetId/:relation` -> `204`
 
-
 ## Attachment metadata
 
 `GET /api/issues/:issueId/attachments`
@@ -126,6 +125,143 @@ The Scarlet implementation stores metadata/object references. Raven owns secure 
 ```
 
 `GET /api/releases/:id`
+
+## Cipher Intelligence API Boundary
+
+### 1. Trigger AI / Deterministic Analysis
+`POST /api/issues/:id/analyze`
+
+### 2. Get Intelligence Summary
+`GET /api/issues/:id/intelligence`
+
+Response `200`:
+```json
+{
+  "data": {
+    "issueId": "BUG-142",
+    "provider": "deterministic-fallback",
+    "model": "v1-deterministic",
+    "bugDna": {
+      "component": "authentication",
+      "failureType": "identity_mismatch",
+      "inputType": "unicode",
+      "impact": "authentication_failure",
+      "securityRelevant": true,
+      "environment": "web_runtime"
+    },
+    "triage": {
+      "category": "SECURITY_VULNERABILITY",
+      "suggestedSeverity": "HIGH",
+      "suggestedPriority": "P1",
+      "suggestedOwnerRole": "SECURITY_REVIEWER",
+      "riskFactor": 85,
+      "reasoning": "Deterministic classification based on failure type 'identity_mismatch'...",
+      "confidence": 0.9
+    },
+    "reproductionCapsule": {
+      "environment": "Windows OS",
+      "steps": ["Submit payload", "Observe system response"],
+      "expectedResult": "Successful authentication",
+      "actualResult": "Unicode authentication failure",
+      "evidenceProvided": true
+    },
+    "resolutionConfidence": {
+      "confidenceScore": 55,
+      "confidenceLevel": "MEDIUM",
+      "factors": {
+        "statusWeight": 25,
+        "reproductionWeight": 25,
+        "verificationState": "DEVELOPER_RESOLVED_UNVERIFIED",
+        "evidenceWeight": 5
+      },
+      "explanation": "Issue status is RESOLVED, but resolution confidence is rated MEDIUM (55/100) pending formal verification."
+    },
+    "risk": {
+      "overallScore": 85,
+      "riskLevel": "CRITICAL",
+      "factors": {
+        "severityWeight": 30,
+        "priorityWeight": 20,
+        "securityWeight": 20,
+        "dependencyWeight": 0,
+        "releaseWeight": 10,
+        "verificationWeight": 5
+      },
+      "explanation": "Risk score 85/100 computed from Severity (30), Priority (20)..."
+    },
+    "analyzedAt": "2026-08-28T17:00:00.000Z"
+  }
+}
+```
+
+### 3. Duplicate Candidates
+`GET /api/issues/:id/duplicates`
+
+Response `200`:
+```json
+{
+  "data": [
+    {
+      "issueId": "BUG-091",
+      "similarityScore": 0.65,
+      "title": "Unicode identity mismatch",
+      "status": "RESOLVED",
+      "reason": "High term overlap (65% similarity) and identical component"
+    }
+  ]
+}
+```
+
+### 4. Related Issues
+`GET /api/issues/:id/related`
+
+Response `200`:
+```json
+{
+  "data": [
+    {
+      "issueId": "BUG-117",
+      "relevanceScore": 0.9,
+      "relationshipSignal": "EXPLICIT_DEPENDENCY_BLOCKS",
+      "reason": "Explicit BLOCKS dependency relationship established",
+      "title": "Dependency graph exposes private summary",
+      "status": "TRIAGED"
+    }
+  ]
+}
+```
+
+### 5. Reproduction Capsule
+`GET /api/issues/:id/reproduction-capsule`
+
+### 6. Resolution Confidence
+`GET /api/issues/:id/resolution-confidence`
+
+### 7. Release Risk Radar
+`GET /api/releases/:id/risk`
+
+Response `200`:
+```json
+{
+  "data": {
+    "releaseId": "rel_01",
+    "overallReleaseRiskScore": 80,
+    "riskLevel": "CRITICAL",
+    "totalIssues": 4,
+    "criticalHighCount": 3,
+    "securityIssueCount": 2,
+    "blockedDependencyCount": 2,
+    "unverifiedResolvedCount": 1,
+    "factors": {
+      "criticalHighWeight": 75,
+      "securityWeight": 60,
+      "blockedDependencyWeight": 40,
+      "unverifiedResolvedWeight": 15
+    },
+    "explanation": "Release risk score 80/100 based on 3 Critical/High issues..."
+  }
+}
+```
 
 ## HTTP standards
 
