@@ -1,0 +1,9 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { query } from '../db/pool.js';
+import { HttpError } from '../shared/http.js';
+export const dependencyRouter=Router();
+const schema=z.object({dependsOnIssueId:z.string().min(1),relation:z.enum(['BLOCKS','DEPENDS_ON','RELATES_TO','DUPLICATES']).default('BLOCKS')});
+dependencyRouter.get('/issues/:issueId/dependencies',async(req,res,next)=>{try{const r=await query(`SELECT d.*, i.title target_title FROM issue_dependencies d JOIN issues i ON i.id=d.depends_on_issue_id WHERE d.issue_id=$1`,[req.params.issueId]);res.json({data:r.rows.map(x=>({issueId:x.issue_id,dependsOnIssueId:x.depends_on_issue_id,relation:x.relation,createdAt:x.created_at,targetTitle:x.target_title}))});}catch(e){next(e);}});
+dependencyRouter.post('/issues/:issueId/dependencies',async(req,res,next)=>{try{const d=schema.parse(req.body);if(req.params.issueId===d.dependsOnIssueId)throw new HttpError(422,'SELF_DEPENDENCY','An issue cannot depend on itself.');const ids=await query('SELECT id FROM issues WHERE id = ANY($1::varchar[])',[[req.params.issueId,d.dependsOnIssueId]]);if(ids.rowCount!==2)throw new HttpError(404,'ISSUE_NOT_FOUND','Both issues must exist.');const r=await query(`INSERT INTO issue_dependencies(issue_id,depends_on_issue_id,relation) VALUES($1,$2,$3) RETURNING *`,[req.params.issueId,d.dependsOnIssueId,d.relation]);res.status(201).json({data:r.rows[0]});}catch(e){next(e);}});
+dependencyRouter.delete('/issues/:issueId/dependencies/:targetId/:relation',async(req,res,next)=>{try{const r=await query('DELETE FROM issue_dependencies WHERE issue_id=$1 AND depends_on_issue_id=$2 AND relation=$3',[req.params.issueId,req.params.targetId,req.params.relation]);if(!r.rowCount)throw new HttpError(404,'DEPENDENCY_NOT_FOUND','Dependency does not exist.');res.status(204).send();}catch(e){next(e);}});

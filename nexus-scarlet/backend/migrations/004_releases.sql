@@ -1,0 +1,14 @@
+CREATE TABLE releases (
+  id VARCHAR(64) PRIMARY KEY,
+  project_id VARCHAR(64) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  version VARCHAR(64) NOT NULL,
+  name VARCHAR(160) NOT NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'PLANNED' CHECK (status IN ('PLANNED','IN_PROGRESS','RELEASED','CANCELLED')),
+  target_date DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(project_id, version)
+);
+
+ALTER TABLE issues ADD COLUMN release_id VARCHAR(64) REFERENCES releases(id) ON DELETE SET NULL;
+CREATE INDEX idx_issues_release ON issues(release_id);

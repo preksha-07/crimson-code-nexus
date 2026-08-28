@@ -1,0 +1,25 @@
+# Scarlet Integration Checklist
+
+- [x] `npm install` succeeds
+- [x] PostgreSQL starts with Docker
+- [x] All ordered migrations apply cleanly
+- [x] Seed/demo data loads independently from migrations
+- [x] `GET /health` works
+- [x] Project CRUD foundation works
+- [x] Issue CRUD works
+- [x] Canonical workflow transition rules enforced
+- [x] Comments work
+- [x] Dependency integrity works
+- [x] Attachment metadata model exists; secure enforcement remains Raven-owned
+- [x] Release model exists and issues can reference releases
+- [x] Core API tests pass
+- [x] Build passes
+- [x] Smoke test passes
+- [x] API contract is documented
+- [x] Architecture note is documented
+- [x] `.env.example` contains no secrets
+- [x] Branch is `feature/scarlet-issue-workflow`
+- [x] PR documents files/API/schema/tests/environment/security impact
+- [x] Raven can wrap the new endpoints with authorization without changing business logic
+- [x] Cipher can consume the stable Issue object
+- [x] Vixen can consume the documented response shapes
