@@ -1,0 +1,26 @@
+[
+  {
+    "id": "priv_01",
+    "resourceType": "issue",
+    "isPrivate": false,
+    "securityLevel": "PUBLIC",
+    "description": "A standard public bug visible to all roles.",
+    "accessRules": {
+      "VIEWER": true,
+      "DEVELOPER": true,
+      "ADMIN": true
+    }
+  },
+  {
+    "id": "priv_02",
+    "resourceType": "issue",
+    "isPrivate": true,
+    "securityLevel": "RESTRICTED",
+    "description": "An issue marked private or restricted (e.g. security vulnerability or private group discussions).",
+    "accessRules": {
+      "VIEWER": false,
+      "SECURITY_REVIEWER": true,
+      "ADMIN": true
+    }
+  }
+]

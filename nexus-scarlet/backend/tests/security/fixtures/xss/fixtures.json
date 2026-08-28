@@ -1,0 +1,30 @@
+[
+  {
+    "id": "xss_01",
+    "attackType": "XSS - Basic Script Injection",
+    "purpose": "Test if simple script tags are intercepted or escaped correctly by the interface/validation layer.",
+    "input": "<script>alert('xss')</script>",
+    "expectedResult": "Should be rejected by validation if strict markup is disallowed, or safely encoded/escaped on output rendering."
+  },
+  {
+    "id": "xss_02",
+    "attackType": "XSS - HTML Injection",
+    "purpose": "Test if arbitrary HTML tags can be injected into fields that might render as HTML.",
+    "input": "<div><h1>Injected Title</h1><p>Malicious content</p></div>",
+    "expectedResult": "Should be sanitized or plaintext encoded. Rich text editor fields must strip unapproved tags."
+  },
+  {
+    "id": "xss_03",
+    "attackType": "XSS - Event Handler Injection",
+    "purpose": "Test if event handlers inside attributes (e.g. onload, onerror) are parsed and executed.",
+    "input": "<img src=\"x\" onerror=\"alert(document.cookie)\">",
+    "expectedResult": "Must be stripped during rich text sanitization or rejected by the input validation pattern."
+  },
+  {
+    "id": "xss_04",
+    "attackType": "XSS - Malicious Rich-Text Content",
+    "purpose": "Test javascript pseudo-protocol links inside href attributes.",
+    "input": "<a href=\"javascript:alert('xss')\">Click Here</a>",
+    "expectedResult": "javascript: URIs must be disallowed, filtered, or redacted during rendering/validation."
+  }
+]

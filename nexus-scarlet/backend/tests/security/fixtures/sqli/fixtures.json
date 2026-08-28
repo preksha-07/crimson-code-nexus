@@ -1,0 +1,30 @@
+[
+  {
+    "id": "sqli_01",
+    "attackType": "SQLi - Basic Injection-like Input",
+    "purpose": "Verify validation layer behavior on typical SQL keyword/comment sequences.",
+    "input": "1 UNION SELECT username, password FROM users",
+    "expectedResult": "Should be processed as a literal string value if parameterized queries are used, or rejected if validating strict format types (e.g. integer IDs)."
+  },
+  {
+    "id": "sqli_02",
+    "attackType": "SQLi - Quote Manipulation",
+    "purpose": "Test if unescaped quotes break the backend query or cause database errors.",
+    "input": "admin' OR '1'='1",
+    "expectedResult": "Database queries must use parameter binding so quotes are treated as literal text and do not split the SQL syntax."
+  },
+  {
+    "id": "sqli_03",
+    "attackType": "SQLi - Boolean-Condition Injection",
+    "purpose": "Test if injection of conditional logic can bypass auth checks or expose extra rows.",
+    "input": "'; IF(1=1) SELECT 1 ELSE SELECT 0 --",
+    "expectedResult": "Database layer must bind arguments natively. The query validation must reject multi-statement strings where appropriate."
+  },
+  {
+    "id": "sqli_04",
+    "attackType": "SQLi - Malformed Query Parameters",
+    "purpose": "Provide unexpected non-numeric query parameters to endpoints expecting numbers.",
+    "input": "id=NaN&limit=ALL&offset=-1",
+    "expectedResult": "Validation layer should reject parameter formats that fail integer/positive-value checks."
+  }
+]

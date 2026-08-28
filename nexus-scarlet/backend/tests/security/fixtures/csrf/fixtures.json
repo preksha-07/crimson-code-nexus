@@ -1,0 +1,29 @@
+[
+  {
+    "id": "csrf_01",
+    "attackType": "CSRF - Missing Anti-CSRF Token",
+    "purpose": "Verify request is rejected when no CSRF token is provided on state-changing requests.",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "status": "CLOSED",
+      "resolution": "WONTFIX"
+    },
+    "expectedResult": "HTTP 403 Forbidden - Missing CSRF protection token."
+  },
+  {
+    "id": "csrf_02",
+    "attackType": "CSRF - Invalid Origin/Referer",
+    "purpose": "Test behavior when a state-changing POST is initiated from an external untrusted origin.",
+    "headers": {
+      "Origin": "https://malicious-site.com",
+      "Referer": "https://malicious-site.com/attack.html",
+      "X-CSRF-Token": "valid-token-from-different-session"
+    },
+    "body": {
+      "email": "compromised@nexus.com"
+    },
+    "expectedResult": "HTTP 403 Forbidden - Origin mismatch or CSRF token invalid for current session."
+  }
+]

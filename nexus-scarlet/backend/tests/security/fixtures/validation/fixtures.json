@@ -1,0 +1,68 @@
+[
+  {
+    "id": "val_01",
+    "attackType": "Validation - Missing Required Fields",
+    "purpose": "Verify request is rejected when mandatory parameters are missing.",
+    "schemaType": "LoginRequest",
+    "input": {
+      "password": "somePassword"
+    },
+    "expectedResult": "Should fail validation highlighting missing 'username' or 'email'."
+  },
+  {
+    "id": "val_02",
+    "attackType": "Validation - Wrong Types",
+    "purpose": "Verify validation rejects non-string inputs where string is expected.",
+    "schemaType": "CreateIssueRequest",
+    "input": {
+      "title": 12345,
+      "description": "Valid description"
+    },
+    "expectedResult": "Should fail validation stating 'title' must be a string."
+  },
+  {
+    "id": "val_03",
+    "attackType": "Validation - Oversized Strings",
+    "purpose": "Test length bounds constraints on inputs to prevent buffer/DoS issues.",
+    "schemaType": "CreateCommentRequest",
+    "input": {
+      "content": "A".repeat(100001)
+    },
+    "expectedResult": "Should fail validation stating 'content' length exceeds maximum limit."
+  },
+  {
+    "id": "val_04",
+    "attackType": "Validation - Invalid Enum Values",
+    "purpose": "Verify fields with restricted enum values reject invalid values.",
+    "schemaType": "CreateIssueRequest",
+    "input": {
+      "title": "Valid Issue Title",
+      "severity": "CRITICAL_BREAKING"
+    },
+    "expectedResult": "Should fail validation stating 'severity' contains an invalid enum value."
+  },
+  {
+    "id": "val_05",
+    "attackType": "Validation - Empty/Null Handling",
+    "purpose": "Verify empty string behavior for mandatory fields.",
+    "schemaType": "LoginRequest",
+    "input": {
+      "username": "",
+      "password": "    "
+    },
+    "expectedResult": "Should fail validation stating fields cannot be empty or blank."
+  },
+  {
+    "id": "val_06",
+    "attackType": "Validation - Unexpected Fields",
+    "purpose": "Ensure additional properties not defined in the schema are stripped or flagged.",
+    "schemaType": "LoginRequest",
+    "input": {
+      "username": "admin",
+      "password": "password123",
+      "isAdmin": true,
+      "injectCode": "DROP TABLE users;"
+    },
+    "expectedResult": "Should strip unexpected fields or reject request depending on schema policy."
+  }
+]

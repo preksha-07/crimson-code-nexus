@@ -1,0 +1,47 @@
+[
+  {
+    "id": "rbac_01",
+    "role": "ADMIN",
+    "tests": [
+      { "action": "manage_users", "resourceType": "user", "expected": true },
+      { "action": "delete_issue", "resourceType": "issue", "expected": true },
+      { "action": "view_security_findings", "resourceType": "issue", "expected": true }
+    ]
+  },
+  {
+    "id": "rbac_02",
+    "role": "PROJECT_MANAGER",
+    "tests": [
+      { "action": "create_issue", "resourceType": "issue", "expected": true },
+      { "action": "export_issues", "resourceType": "issue", "expected": true },
+      { "action": "manage_users", "resourceType": "user", "expected": false }
+    ]
+  },
+  {
+    "id": "rbac_03",
+    "role": "DEVELOPER",
+    "tests": [
+      { "action": "comment_issue", "resourceType": "issue", "expected": true },
+      { "action": "view_graphs", "resourceType": "issue", "expected": true },
+      { "action": "delete_issue", "resourceType": "issue", "expected": false }
+    ]
+  },
+  {
+    "id": "rbac_04",
+    "role": "SECURITY_REVIEWER",
+    "tests": [
+      { "action": "view_security_findings", "resourceType": "issue", "expected": true },
+      { "action": "update_issue", "resourceType": "issue", "expected": true },
+      { "action": "manage_users", "resourceType": "user", "expected": false }
+    ]
+  },
+  {
+    "id": "rbac_05",
+    "role": "VIEWER",
+    "tests": [
+      { "action": "read_issue", "resourceType": "issue", "expected": true },
+      { "action": "comment_issue", "resourceType": "issue", "expected": false },
+      { "action": "export_issues", "resourceType": "issue", "expected": false }
+    ]
+  }
+]
