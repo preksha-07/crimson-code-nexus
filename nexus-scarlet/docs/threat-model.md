@@ -142,6 +142,14 @@ NEXUS is an evidence-driven, security-first bug intelligence platform built to r
 * **Planned Test**: `tests/security/notifications/notifications.test.js`
 * **Status**: `DEFINED + BLOCKED BY BACKEND` (SMTP outboxes and transactional message brokers are not yet implemented by Scarlet).
 
+### Threat 13: Client-Controlled Identity / Audit Impersonation
+* **Attack Scenario**: Attacker submits issue creation, transition, comment post, or file upload registration payloads containing a spoofed user ID (`reporterId`, `actorId`, `authorId`, or `uploadedBy`), causing the audit logs and database to associate the action with an innocent user.
+* **Asset Affected**: `audit_logs`, `issues`, `comments`, `attachments`.
+* **Security Boundary**: Authentication Boundary.
+* **NEXUS Control**: None in current backend (vulnerability active). Must use `req.user.id` resolved from session authentication.
+* **Planned Test**: `tests/security/identity-integrity.test.ts`
+* **Status**: `DEFINED / SECURITY FINDING / BLOCKED ON AUTHENTICATION INTEGRATION`.
+
 ---
 
 ## 7. Assumptions

@@ -8,6 +8,7 @@ This document is the master index for security validation tests in project NEXUS
 - **`DEFINED + BLOCKED BY FRONTEND`**: The security control/test is defined but blocked until Vixen implements frontend-side sandboxing and escaping (e.g. HTML/Rich-Text client-side rendering).
 - **`DEFINED + BLOCKED BY TEST ENVIRONMENT`**: The security control/test is fully written, but execution is dynamically skipped because of missing local test environment dependencies (e.g. offline PostgreSQL container).
 - **`TEAM DECISION REQUIRED`**: The policy remains undecided and is blocked on product decisions.
+- **`DEFINED / SECURITY FINDING / BLOCKED ON AUTHENTICATION INTEGRATION`**: The vulnerability is active and tracked as a security finding.
 
 ---
 
@@ -151,17 +152,17 @@ This document is the master index for security validation tests in project NEXUS
 
 ---
 
-## 11. Audit Logging
+## 11. Audit Logging / Identity Impersonation
 * **Test ID**: `TST-SEC-11`
-* **Objective**: Ensure access attempts on private issues and administrative tasks are logged.
-* **Preconditions**: Auditing logging system active.
-* **Attack/Input**: Attempted access of private resource.
-* **Test Procedure**: Trigger a rejected private issue read request; check audit log file.
-* **Expected Result**: Log created containing action, user, timestamp, resource ID, and outcome.
-* **Failure Condition**: Log is not recorded or contains raw passwords/tokens.
+* **Objective**: Ensure that audit log events and database fields (reporterId, actorId, authorId, uploadedBy) cannot be controlled or spoofed by request bodies.
+* **Preconditions**: Authentication session verification active.
+* **Attack/Input**: Attempted creation/transition of issues or comments containing spoofed IDs in JSON bodies.
+* **Test Procedure**: Send POST `/api/issues` or PATCH `/api/issues/:id/status` under caller session context, specifying a spoofed ID in the body payload.
+* **Expected Result**: Audit events and issue tables record only the authenticated user context; client-supplied body overrides are ignored or rejected.
+* **Failure Condition**: Audit logs record the spoofed ID instead of the caller's verified identity.
 * **Severity**: `HIGH`
 * **Test Type**: Integration
-* **Current Status**: `DEFINED + BLOCKED BY BACKEND` (Upstream logging engine is not yet implemented by Scarlet).
+* **Current Status**: `DEFINED / SECURITY FINDING / BLOCKED ON AUTHENTICATION INTEGRATION` (Demonstrated in integration tests; blocked until Scarlet implements session middleware).
 
 ---
 

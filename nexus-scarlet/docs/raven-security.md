@@ -20,8 +20,10 @@ Raven is responsible for establishing the threat defenses and secure workflows w
 - **RBAC Express Middleware (`src/security/rbac/middleware.ts`)**: Reusable authorization middleware factory `checkPermission(action, resourceType)`. It expects `req.user` to be set by upstream authentication and evaluates access using the standalone evaluator.
 - **RBAC Issue API Mounts (`src/issues/routes.ts`)**: Mounted permissions checks on list, get, create, update, delete, and transition status routes.
 - **Security Type Declarations (`src/security/**/*.d.ts`)**: Type definitions allowing Scarlet's TypeScript codebase to import and use the framework-agnostic JavaScript security foundation with strict compile checks.
+- **API Security Coverage Audit (`docs/api-security-audit.md`)**: Comprehensive endpoint mapping audit outlining RBAC action models, verification enforcements, validation gaps, and future Phase 4B implementation orders.
 - **Vitest Integration Tests (`tests/security/`)**:
   - `rbac-integration.test.ts`: Integration checks for Issue API endpoints using mocked user context.
+  - `identity-integrity.test.ts`: Integration tests demonstrating identity impersonation risks on client-supplied ID parameters.
   - `headers.test.ts`: Confirms Helmet response headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options) match project specifications.
   - `sqli.test.ts`: Exercises real database path safety checks (skips dynamically if DB is offline).
   - `xss.test.ts`: Exercises input and storage boundary testing for malicious payloads.
@@ -59,6 +61,7 @@ The following integration tests run locally via Vitest + Supertest:
 ### Storage & Input Tests (DEFINED + BLOCKED BY TEST ENVIRONMENT / FRONTEND)
 - **`tests/security/sqli.test.ts`**: Tests parameterized database safety. Classified as `DEFINED + BLOCKED BY TEST ENVIRONMENT` and skipped dynamically using Vitest `ctx.skip()` if the PostgreSQL database connection fails (`ECONNREFUSED`).
 - **`tests/security/xss.test.ts`**: Tests API input/storage bounds. Classified as `DEFINED + BLOCKED BY TEST ENVIRONMENT` and skipped dynamically if the DB is down. XSS browser rendering protection is classified as `DEFINED + BLOCKED BY FRONTEND` because rendering safety resides in Vixen's browser sandbox, not the backend storage.
+- **`tests/security/identity-integrity.test.ts`**: Verifies client-controlled identity spoofing. Classified as `DEFINED + BLOCKED BY TEST ENVIRONMENT` (exercises database path and audit logs; skipped dynamically if PostgreSQL is unreachable).
 
 ### Blocked Tests (DEFINED + BLOCKED BY BACKEND)
 The following tests remain stubbed/skipped as they wait for Scarlet's upstream authentication, attachment, and notification infrastructure:
@@ -71,10 +74,24 @@ The following tests remain stubbed/skipped as they wait for Scarlet's upstream a
 
 ## 4. Security Findings & Authentication Dependencies
 
-### [CRITICAL FINDING] Impersonation Risk on Body-Supplied IDs
-- **Vulnerability**: In `src/issues/routes.ts`, issue creation reads `reporterId` directly from the request JSON body payload. Similarly, issue status transitions read `actorId` directly from the body.
-- **Impact**: Any client can supply any user's ID to impersonate them, forging reporter and actor identities on audits and transitions.
-- **Dependency**: Session validation is a **hard dependency**. The backend must never trust client-supplied `reporterId` or `actorId` from request bodies. Upstream authentication middleware must set `req.user` based on secure session tokens/cookies, and the route handlers must resolve user context exclusively from `req.user.id`.
+### [CRITICAL FINDING] CLIENT-CONTROLLED IDENTITY / AUDIT IMPERSONATION
+- **Vulnerability**: User context and audit parameters are read directly from client-supplied request bodies, allowing actors to spoof reporter and actor identities on audits, comment threads, and file upload logs.
+- **Affected Fields**:
+  - `issues`: `reporterId` (creation), `actorId` (transitions)
+  - `comments`: `authorId` (creation)
+  - `attachments`: `uploadedBy` (creation)
+- **Current Status**: `DEFINED / SECURITY FINDING / BLOCKED ON AUTHENTICATION INTEGRATION` (The vulnerability is active and must NOT be marked as fixed).
+- **Impact**: Attacker can create issues, post comments, link attachments, and transition issue status on behalf of any other user.
+- **Dependency**: Session validation is a **hard dependency**. The backend must never trust client-supplied identity fields in request bodies. Upstream authentication middleware must set `req.user` based on secure session tokens/cookies, and the route handlers must resolve user context exclusively from `req.user.id`:
+  ```
+  authenticated principal (from secure cookie/session)
+             ↓
+         req.user.id
+             ↓
+      service/controller
+             ↓
+      reporterId / actorId / authorId / uploadedBy
+  ```
 
 ### [SECURITY ASSUMPTIONS]
 1. **PostgreSQL isolation**: Database listener is locked down and only accepts requests originating from the backend container/process.
