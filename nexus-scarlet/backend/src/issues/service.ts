@@ -39,10 +39,10 @@ export async function getIssue(id: string) {
   return row(r.rows[0]);
 }
 
-export async function createIssue(input: unknown) {
+export async function createIssue(input: unknown, reporterId: string) {
   const data = issueCreateSchema.parse(input);
   await ensureProject(data.projectId);
-  await ensureUser(data.reporterId);
+  await ensureUser(reporterId);
   if (data.assigneeId) await ensureUser(data.assigneeId);
   const id = `BUG-${String(Date.now()).slice(-8)}`;
   const r = await query(
@@ -50,11 +50,11 @@ export async function createIssue(input: unknown) {
      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
     [id, data.projectId, data.title, data.description, data.severity, data.priority,
      data.issueType, data.component ?? null, data.version ?? null,
-     data.reporterId, data.assigneeId ?? null, data.releaseId ?? null]
+     reporterId, data.assigneeId ?? null, data.releaseId ?? null]
   );
   await query(
     `INSERT INTO issue_events(issue_id,actor_id,event_type,to_status,metadata) VALUES($1,$2,'ISSUE_CREATED','REPORTED',$3)`,
-    [id, data.reporterId, JSON.stringify({})]
+    [id, reporterId, JSON.stringify({})]
   );
   return row(r.rows[0]);
 }

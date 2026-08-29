@@ -18,7 +18,7 @@ issueRouter.get('/', checkPermission('read', 'issue'), async (req,res,next) => {
   res.json({ data: await listIssues(q) });
 } catch(e){next(e);} });
 
-issueRouter.post('/', checkPermission('create', 'issue'), async (req,res,next) => { try { res.status(201).json({ data: await createIssue({ ...req.body, reporterId: (req as any).user.id }) }); } catch(e){next(e);} });
+issueRouter.post('/', checkPermission('create', 'issue'), async (req,res,next) => { try { res.status(201).json({ data: await createIssue(req.body, (req as any).user.id) }); } catch(e){next(e);} });
 issueRouter.get('/:id', checkPermission('read', 'issue'), async (req,res,next) => { try { res.json({ data: await getIssue(param(req.params.id)) }); } catch(e){next(e);} });
 issueRouter.patch('/:id', checkPermission('update', 'issue'), async (req,res,next) => { try { res.json({ data: await updateIssue(param(req.params.id), req.body) }); } catch(e){next(e);} });
 issueRouter.delete('/:id', checkPermission('delete', 'issue'), async (req,res,next) => { try { await deleteIssue(param(req.params.id)); res.status(204).send(); } catch(e){next(e);} });
