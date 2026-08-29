@@ -11,12 +11,15 @@ import { dependencyRouter } from './dependencies/routes.js';
 import { attachmentRouter } from './attachments/routes.js';
 import { releaseRouter } from './releases/routes.js';
 import { intelligenceRouter } from './intelligence/routes.js';
+import { authenticateSession } from './security/auth/middleware.js';
+import { authRouter } from './security/auth/routes.js';
 
 export const app = express();
 app.use(helmet());
 app.use(cors({ origin: env.corsOrigin, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(requestId);
+app.use(authenticateSession);
 
 app.get('/health', async (_req, res, next) => {
   try {
@@ -27,6 +30,7 @@ app.get('/health', async (_req, res, next) => {
   }
 });
 
+app.use('/api/auth', authRouter);
 app.use('/api/issues', issueRouter);
 app.use('/api/projects', projectRouter);
 app.use('/api', commentRouter);

@@ -3,20 +3,16 @@ import request from 'supertest';
 import { app } from '../../src/app.js';
 import { pool, query } from '../../src/db/pool.js';
 
-describe('CLIENT-CONTROLLED IDENTITY / AUDIT IMPERSONATION Finding', () => {
+describe('IDENTITY INTEGRITY & IMPERSONATION REGRESSION TESTS (Phase 6)', () => {
   let isDbConnected = false;
 
   beforeAll(async () => {
-    // Upstream Authentication Dependency Mock:
-    // We mock req.user internally in tests to bypass the RBAC middleware boundary.
-    // We mock the caller identity as Developer (usr_03), who is authorized to create/edit issues.
+    // Mock user context as usr_03 (Developer) to represent the authenticated session
     const mockAuth = (req: any, res: any, next: any) => {
-      req.user = { id: 'usr_03', role: 'DEVELOPER' };
+      req.user = { id: 'usr_03', role: 'DEVELOPER', displayName: 'Dev Kumar' };
       next();
     };
 
-    // Safely mount using Express's own app.use to construct the Layer,
-    // then move it to the beginning of the stack so it executes first.
     app.use(mockAuth);
     const router = (app as any).router;
     if (router && Array.isArray(router.stack)) {
@@ -39,84 +35,129 @@ describe('CLIENT-CONTROLLED IDENTITY / AUDIT IMPERSONATION Finding', () => {
     await pool.end();
   });
 
-  /**
-   * Expected Future Secure Architecture:
-   * 
-   *   authenticated principal (from secure cookie/session)
-   *             ↓
-   *         req.user.id
-   *             ↓
-   *      service/controller
-   *             ↓
-   *      reporterId / actorId
-   * 
-   * Client-supplied identity fields must not override the authenticated principal.
-   */
-
-  it('demonstrates that reporterId is accepted from request payload on creation (BLOCKED BY TEST ENVIRONMENT if DB is down)', async (ctx) => {
+  it('proves usr_03 cannot impersonate usr_01 on issue creation (reporterId is derived from session) (BLOCKED BY DB if offline)', async (ctx) => {
     if (!isDbConnected) {
       ctx.skip();
       return;
     }
 
-    // The authenticated caller is Dev Kumar (usr_03), but we supply Aarav Sharma (usr_01 - Admin)
-    // as the reporterId in the request body.
-    const impersonatedUser = 'usr_01'; // Aarav Sharma (Admin)
-    
+    const attackerUser = 'usr_03'; // Authenticated user
+    const victimUser = 'usr_01'; // Attempted spoofed user
+
     const res = await request(app)
       .post('/api/issues')
       .send({
         projectId: 'proj_01',
-        title: 'Impersonation Issue',
-        description: 'Testing if reporterId can be spoofed',
-        reporterId: impersonatedUser
+        title: 'Impersonation Regression Test Issue',
+        description: 'Testing if spoofed reporterId is ignored',
+        reporterId: victimUser // Spoofed parameter in request body
       });
 
-    // The backend should accept the request and create the issue using the body's reporterId
     expect(res.status).toBe(201);
-    expect(res.body.data.reporterId).toBe(impersonatedUser);
+    // The API response must report reporterId as the authenticated user, NOT the spoofed one
+    expect(res.body.data.reporterId).toBe(attackerUser);
 
-    // Verify database record and audit log integrity record the spoofed identity instead of caller
+    // Verify database record has reporter_id as usr_03
     const issueId = res.body.data.id;
     const dbIssue = await query('SELECT reporter_id FROM issues WHERE id = $1', [issueId]);
-    expect(dbIssue.rows[0].reporter_id).toBe(impersonatedUser);
+    expect(dbIssue.rows[0].reporter_id).toBe(attackerUser);
 
-    const dbEvents = await query('SELECT actor_id FROM issue_events WHERE issue_id = $1 AND event_type = \'ISSUE_CREATED\'', [issueId]);
-    expect(dbEvents.rows[0].actor_id).toBe(impersonatedUser);
+    // Verify creation event has actor_id as usr_03
+    const dbEvents = await query(
+      'SELECT actor_id FROM issue_events WHERE issue_id = $1 AND event_type = \'ISSUE_CREATED\'',
+      [issueId]
+    );
+    expect(dbEvents.rows[0].actor_id).toBe(attackerUser);
   });
 
-  it('demonstrates that actorId is accepted from transition payload on status update (BLOCKED BY TEST ENVIRONMENT if DB is down)', async (ctx) => {
+  it('proves usr_03 cannot impersonate usr_01 on status transitions (actorId is derived from session) (BLOCKED BY DB if offline)', async (ctx) => {
     if (!isDbConnected) {
       ctx.skip();
       return;
     }
 
-    // First create a temporary issue using Developer (usr_03)
+    const attackerUser = 'usr_03'; // Authenticated user
+    const victimUser = 'usr_01'; // Attempted spoofed user
+
+    // 1. Create issue
     const createRes = await request(app)
       .post('/api/issues')
       .send({
         projectId: 'proj_01',
-        title: 'Status Transition Impersonation',
-        description: 'Testing if actorId can be spoofed on transition',
-        reporterId: 'usr_03'
+        title: 'Transition Impersonation Test',
+        description: 'Testing transition actorId spoofing',
+        reporterId: attackerUser
       });
     
     const issueId = createRes.body.data.id;
-    const impersonatedUser = 'usr_01'; // Aarav Sharma (Admin)
 
-    // Transition status and pass client-controlled actorId in request body
-    const transitionRes = await request(app)
+    // 2. Perform transition attempting to spoof actorId
+    const res = await request(app)
       .patch(`/api/issues/${issueId}/status`)
       .send({
         toStatus: 'TRIAGED',
-        actorId: impersonatedUser,
-        reason: 'Impersonated transition'
+        actorId: victimUser, // Spoofed parameter
+        reason: 'Attempted transition impersonation'
       });
 
-    expect(transitionRes.status).toBe(200);
+    expect(res.status).toBe(200);
 
-    // Verify audit logs record the spoofed identity instead of caller (usr_03)
-    const dbEvents = await query('SELECT actor_id FROM issue_events WHERE issue_id = $1 AND event_type = \'STATUS_CHANGED\'', [issueId]);
-    expect(dbEvents.rows[0].actor_id).toBe(impersonatedUser);
+    // Verify transition status event in database has actor_id as usr_03
+    const dbEvents = await query(
+      'SELECT actor_id FROM issue_events WHERE issue_id = $1 AND event_type = \'STATUS_CHANGED\'',
+      [issueId]
+    );
+    expect(dbEvents.rows[0].actor_id).toBe(attackerUser);
+  });
+
+  it('proves usr_03 cannot impersonate usr_01 on comment creation (authorId is derived from session) (BLOCKED BY DB if offline)', async (ctx) => {
+    if (!isDbConnected) {
+      ctx.skip();
+      return;
+    }
+
+    const attackerUser = 'usr_03'; // Authenticated user
+    const victimUser = 'usr_01'; // Attempted spoofed user
+
+    const res = await request(app)
+      .post('/api/issues/BUG-091/comments')
+      .send({
+        authorId: victimUser, // Spoofed parameter
+        body: 'Impersonation comment check.'
+      });
+
+    expect(res.status).toBe(201);
+    
+    // Verify database record has author_id as usr_03
+    const commentId = res.body.data.id;
+    const dbComment = await query('SELECT author_id FROM issue_comments WHERE id = $1', [commentId]);
+    expect(dbComment.rows[0].author_id).toBe(attackerUser);
+  });
+
+  it('proves usr_03 cannot impersonate usr_01 on attachment upload (uploadedBy is derived from session) (BLOCKED BY DB if offline)', async (ctx) => {
+    if (!isDbConnected) {
+      ctx.skip();
+      return;
+    }
+
+    const attackerUser = 'usr_03'; // Authenticated user
+    const victimUser = 'usr_01'; // Attempted spoofed user
+
+    const res = await request(app)
+      .post('/api/issues/BUG-091/attachments')
+      .send({
+        uploadedBy: victimUser, // Spoofed parameter
+        fileName: 'impersonation_test.txt',
+        contentType: 'text/plain',
+        objectKey: 'attachments/impersonation_test.txt',
+        sizeBytes: 1024
+      });
+
+    expect(res.status).toBe(201);
+
+    // Verify database record has uploaded_by as usr_03
+    const attachmentId = res.body.data.id;
+    const dbAttachment = await query('SELECT uploaded_by FROM attachments WHERE id = $1', [attachmentId]);
+    expect(dbAttachment.rows[0].uploaded_by).toBe(attackerUser);
   });
 });

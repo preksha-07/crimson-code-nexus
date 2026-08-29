@@ -9,7 +9,7 @@ describe('NEXUS Cross-Site Scripting (XSS) Input & Storage Tests', () => {
   beforeAll(async () => {
     // Inject mock authentication for test endpoints (so we don't block on RBAC)
     const mockAuth = (req: any, res: any, next: any) => {
-      req.user = { id: 'usr_admin', role: 'ADMIN' };
+      req.user = { id: 'usr_01', role: 'ADMIN' };
       next();
     };
 

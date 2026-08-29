@@ -9,7 +9,7 @@ export const issueCreateSchema = z.object({
   issueType: z.enum(['BUG','TASK','IMPROVEMENT','SECURITY']).default('BUG'),
   component: z.string().max(120).nullable().optional(),
   version: z.string().max(64).nullable().optional(),
-  reporterId: z.string().min(1).max(64),
+  reporterId: z.string().min(1).max(64).optional(),
   assigneeId: z.string().min(1).max(64).nullable().optional(),
   releaseId: z.string().min(1).max(64).nullable().optional()
 });
@@ -28,6 +28,6 @@ export const issueUpdateSchema = z.object({
 
 export const transitionSchema = z.object({
   toStatus: z.enum(['REPORTED','TRIAGED','ASSIGNED','IN_PROGRESS','CODE_REVIEW','TESTING','RESOLVED','VERIFIED','CLOSED']),
-  actorId: z.string().min(1).max(64),
+  actorId: z.string().min(1).max(64).optional(),
   reason: z.string().max(500).optional()
 });

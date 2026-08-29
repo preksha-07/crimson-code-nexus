@@ -1,28 +1,49 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
+import { apiClient } from '../../lib/api/client';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const sessionStr = localStorage.getItem('nexus_current_user');
-  
-  if (!sessionStr) {
-    return <Navigate to="/login" replace />;
+  const [loading, setLoading] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    apiClient.get<{ data: { user: unknown } }>('/auth/me')
+      .then(res => {
+        if (!active) return;
+        if (res.data && res.data.user) {
+          setAuthenticated(true);
+        } else {
+          setAuthenticated(false);
+          localStorage.removeItem('nexus_current_user');
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setAuthenticated(false);
+        localStorage.removeItem('nexus_current_user');
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0B0F19', color: '#8892B0' }}>
+        <span>Authenticating session...</span>
+      </div>
+    );
   }
 
-  let hasValidSession = false;
-  try {
-    const session = JSON.parse(sessionStr);
-    if (session && typeof session === 'object' && session.token) {
-      hasValidSession = true;
-    }
-  } catch {
-    // Malformed JSON falls through
-  }
-
-  if (!hasValidSession) {
+  if (!authenticated) {
     return <Navigate to="/login" replace />;
   }
 

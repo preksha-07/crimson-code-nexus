@@ -1,13 +1,13 @@
 import { pool } from './pool.js';
 
 await pool.query(`
-INSERT INTO users (id, display_name, email, role) VALUES
-('usr_01','Aarav Sharma','aarav@nexus.local','ADMIN'),
-('usr_02','Mira Patel','mira@nexus.local','PROJECT_MANAGER'),
-('usr_03','Dev Kumar','dev@nexus.local','DEVELOPER'),
-('usr_04','Riya Sen','riya@nexus.local','SECURITY_REVIEWER'),
-('usr_05','Noah Das','noah@nexus.local','VIEWER')
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO users (id, display_name, email, role, password_hash) VALUES
+('usr_01','Aarav Sharma','aarav@nexus.local','ADMIN','d395da252873dbe048f5e67b5721ee96:cc7010c26e66f0957e99f9cb73a752865dc850e8f9c9df98c1e17f8989c8f236755d0d6692648c585c69720b04f82285eaeab6a41560558f171c58288b3977cf'),
+('usr_02','Mira Patel','mira@nexus.local','PROJECT_MANAGER','d395da252873dbe048f5e67b5721ee96:cc7010c26e66f0957e99f9cb73a752865dc850e8f9c9df98c1e17f8989c8f236755d0d6692648c585c69720b04f82285eaeab6a41560558f171c58288b3977cf'),
+('usr_03','Dev Kumar','dev@nexus.local','DEVELOPER','d395da252873dbe048f5e67b5721ee96:cc7010c26e66f0957e99f9cb73a752865dc850e8f9c9df98c1e17f8989c8f236755d0d6692648c585c69720b04f82285eaeab6a41560558f171c58288b3977cf'),
+('usr_04','Riya Sen','riya@nexus.local','SECURITY_REVIEWER','d395da252873dbe048f5e67b5721ee96:cc7010c26e66f0957e99f9cb73a752865dc850e8f9c9df98c1e17f8989c8f236755d0d6692648c585c69720b04f82285eaeab6a41560558f171c58288b3977cf'),
+('usr_05','Noah Das','noah@nexus.local','VIEWER','d395da252873dbe048f5e67b5721ee96:cc7010c26e66f0957e99f9cb73a752865dc850e8f9c9df98c1e17f8989c8f236755d0d6692648c585c69720b04f82285eaeab6a41560558f171c58288b3977cf')
+ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash;
 
 INSERT INTO projects (id, name, key, description) VALUES
 ('proj_01','NEXUS Core','NEX','Evidence-driven security-first bug intelligence platform')

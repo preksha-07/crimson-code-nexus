@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Loader2,
 } from 'lucide-react';
+import { apiClient } from '../lib/api/client';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -36,43 +37,18 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await new Promise<void>((resolve, reject) => {
-        setTimeout(() => {
-          const normalizedUsername =
-            cleanUsername.toLowerCase();
+      const res = await apiClient.post<{ data: { user: { id: string; role: string; displayName: string } } }>(
+        '/auth/login',
+        { username: cleanUsername, password: cleanPassword }
+      );
 
-          const allowedUsers = [
-            'sarah',
-            'sconnor',
-            'sarah@nexus.security',
-            'sconnor@nexus.security',
-          ];
-
-          if (
-            !allowedUsers.includes(normalizedUsername)
-          ) {
-            reject(
-              new Error(
-                'Invalid credentials. Use sarah or sconnor.'
-              )
-            );
-            return;
-          }
-
-          resolve();
-        }, 700);
-      });
-
-      const displayName =
-        cleanUsername.includes('@')
-          ? cleanUsername.split('@')[0]
-          : cleanUsername;
+      const user = res.data.user;
 
       localStorage.setItem(
         'nexus_current_user',
         JSON.stringify({
-          name: displayName,
-          role: 'Lead Security Engineer',
+          name: user.displayName,
+          role: user.role,
           token: 'nexus-session-token-abc123xyz',
         })
       );
@@ -86,7 +62,7 @@ export default function LoginPage() {
       setError(
         err instanceof Error
           ? err.message
-          : 'Authentication failed.'
+          : 'Authentication failed. Please verify your credentials.'
       );
     } finally {
       setIsLoading(false);

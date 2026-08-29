@@ -133,6 +133,7 @@ async function request<T>(
       `${API_BASE_URL}${endpoint}`,
       {
         ...options,
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...options.headers,
