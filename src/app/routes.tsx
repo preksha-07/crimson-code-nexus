@@ -1,4 +1,4 @@
-﻿import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
@@ -6,6 +6,7 @@ import ProjectOverviewPage from '../pages/ProjectOverviewPage';
 import IssueCreatePage from '../pages/IssueCreatePage';
 import IssueWorkspacePage from '../pages/IssueWorkspacePage';
 import SecurityPage from '../pages/SecurityPage';
+import ProtectedRoute from '../components/security/ProtectedRoute';
 
 export default function AppRoutes() {
   return (
@@ -19,37 +20,61 @@ export default function AppRoutes() {
       {/* Control Room */}
       <Route
         path="/"
-        element={<DashboardPage />}
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
       />
 
       {/* Projects */}
       <Route
         path="/projects"
-        element={<ProjectOverviewPage />}
+        element={
+          <ProtectedRoute>
+            <ProjectOverviewPage />
+          </ProtectedRoute>
+        }
       />
 
       {/* Individual Project */}
       <Route
         path="/projects/:projectId"
-        element={<ProjectOverviewPage />}
+        element={
+          <ProtectedRoute>
+            <ProjectOverviewPage />
+          </ProtectedRoute>
+        }
       />
 
       {/* Create Issue */}
       <Route
         path="/issues/create"
-        element={<IssueCreatePage />}
+        element={
+          <ProtectedRoute>
+            <IssueCreatePage />
+          </ProtectedRoute>
+        }
       />
 
       {/* Issue Workspace */}
       <Route
         path="/issues/:issueId"
-        element={<IssueWorkspacePage />}
+        element={
+          <ProtectedRoute>
+            <IssueWorkspacePage />
+          </ProtectedRoute>
+        }
       />
 
       {/* Security */}
       <Route
         path="/security"
-        element={<SecurityPage />}
+        element={
+          <ProtectedRoute>
+            <SecurityPage />
+          </ProtectedRoute>
+        }
       />
 
       {/* Unknown route */}

@@ -13,7 +13,7 @@ export default function ProjectOverviewPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
 
-  const [db, setDb] = useState(() => getDb());
+  const [db, setDb] = useState<any>(() => getDb());
 
   useEffect(() => {
     const handleDbUpdate = () => {

@@ -368,8 +368,7 @@ export default function IssueWorkspacePage() {
 
       await addComment(
         issueId,
-        newComment,
-        isSensitive
+        { content: newComment, isSecuritySensitive: isSensitive }
       );
 
       setNewComment('');
