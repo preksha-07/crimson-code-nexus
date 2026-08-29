@@ -66,7 +66,8 @@ export function setCsrfCookie(res: Response, token: string): void {
  * requests.
  *
  * Safe/read-only methods do not require CSRF protection.
- * Login is excluded because the caller has no authenticated session yet.
+ * Login is explicitly excluded because the caller has no authenticated session yet.
+ * Unauthenticated logout is allowed to proceed to the auth router.
  */
 export function requireCsrf(
   req: Request,
@@ -77,17 +78,30 @@ export function requireCsrf(
     return next();
   }
 
-  if (req.path === '/login') {
-    return next();
-  }
+  const path = req.path.replace(/\/$/, '');
 
-  // Authentication/RBAC remains responsible for rejecting unauthenticated
-  // state-changing requests.
-  if (!req.user) {
+  // Login establishes authentication — cannot require an existing CSRF/session
+  if (path === '/api/auth/login' || path === '/login') {
     return next();
   }
 
   const cookies = parseCookies(req.headers.cookie);
+  const hasSessionCookie = Boolean(cookies['nexus_session']);
+
+  // Unauthenticated logout should proceed to the auth layer (idempotent),
+  // whereas authenticated logout (session cookie or authenticated req.user present) is state-changing and requires CSRF.
+  if (path === '/api/auth/logout' || path === '/logout') {
+    if (!req.user && !hasSessionCookie) {
+      return next();
+    }
+  }
+
+  // If request is not authenticated, let authentication/RBAC handle it (returns 401)
+  if (!req.user && !hasSessionCookie) {
+    return next();
+  }
+
+  // Authenticated state-changing request (application routes or authenticated logout)
   const cookieToken = cookies[CSRF_COOKIE];
   const headerToken = getHeaderToken(req);
 
