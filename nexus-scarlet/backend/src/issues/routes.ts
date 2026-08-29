@@ -6,6 +6,7 @@ import { checkPermission } from '../security/rbac/middleware.js';
 import { recordAuditEvent } from '../audit/service.js';
 import { enqueueNotificationForIssue } from '../notifications/queue.js';
 import { query } from '../db/pool.js';
+import { assertIssueAccess, assertProjectAccess, type AuthUser } from '../security/rbac/authorization.js';
 
 export const issueRouter = Router();
 
@@ -21,14 +22,23 @@ const ensureString = (value: unknown): string | undefined => {
 };
 
 issueRouter.get('/', checkPermission('read', 'issue'), async (req,res,next) => { try {
+  const user = (req as any).user as AuthUser;
   const q = z.object({ projectId:z.string().optional(), status:z.string().optional(), assigneeId:z.string().optional(), limit:z.coerce.number().int().min(1).max(100).default(25), offset:z.coerce.number().int().min(0).default(0) }).parse(req.query);
-  res.json({ data: await listIssues(q) });
+  if (q.projectId) {
+    await assertProjectAccess(user, q.projectId, 'issue');
+  }
+  res.json({ data: await listIssues(q, user) });
 } catch(e){next(e);} });
 
 issueRouter.post('/', checkPermission('create', 'issue'), async (req,res,next) => {
   try {
-    const actorId: string = (req as any).user.id;
-    const data = await createIssue(req.body, actorId);
+    const user = (req as any).user as AuthUser;
+    const actorId: string = user.id;
+    const body = req.body ?? {};
+    if (typeof body.projectId === 'string') {
+      await assertProjectAccess(user, body.projectId, 'issue');
+    }
+    const data = await createIssue(body, actorId);
 
     await recordAuditEvent({
       actorId,
@@ -63,15 +73,42 @@ issueRouter.post('/', checkPermission('create', 'issue'), async (req,res,next) =
   } catch(e){next(e);}
 });
 
-issueRouter.get('/:id', checkPermission('read', 'issue'), async (req,res,next) => { try { res.json({ data: await getIssue(param(req.params.id)) }); } catch(e){next(e);} });
-issueRouter.patch('/:id', checkPermission('update', 'issue'), async (req,res,next) => { try { res.json({ data: await updateIssue(param(req.params.id), req.body) }); } catch(e){next(e);} });
-issueRouter.delete('/:id', checkPermission('delete', 'issue'), async (req,res,next) => { try { await deleteIssue(param(req.params.id)); res.status(204).send(); } catch(e){next(e);} });
+issueRouter.get('/:id', checkPermission('read', 'issue'), async (req,res,next) => {
+  try {
+    const user = (req as any).user as AuthUser;
+    const issueId = param(req.params.id);
+    await assertIssueAccess(user, issueId, 'issue');
+    res.json({ data: await getIssue(issueId) });
+  } catch(e){next(e);}
+});
+
+issueRouter.patch('/:id', checkPermission('update', 'issue'), async (req,res,next) => {
+  try {
+    const user = (req as any).user as AuthUser;
+    const issueId = param(req.params.id);
+    await assertIssueAccess(user, issueId, 'issue');
+    res.json({ data: await updateIssue(issueId, req.body) });
+  } catch(e){next(e);}
+});
+
+issueRouter.delete('/:id', checkPermission('delete', 'issue'), async (req,res,next) => {
+  try {
+    const user = (req as any).user as AuthUser;
+    const issueId = param(req.params.id);
+    await assertIssueAccess(user, issueId, 'issue');
+    await deleteIssue(issueId);
+    res.status(204).send();
+  } catch(e){next(e);}
+});
 
 issueRouter.patch('/:id/status', checkPermission('update', 'issue'), async (req,res,next) => {
   try {
-    const actorId: string = (req as any).user.id;
+    const user = (req as any).user as AuthUser;
+    const issueId = param(req.params.id);
+    await assertIssueAccess(user, issueId, 'issue');
+    const actorId: string = user.id;
     const data = transitionSchema.parse(req.body);
-    const result = await transitionIssue(param(req.params.id), data.toStatus, actorId, data.reason);
+    const result = await transitionIssue(issueId, data.toStatus, actorId, data.reason);
 
     await recordAuditEvent({
       actorId,
@@ -83,7 +120,6 @@ issueRouter.patch('/:id/status', checkPermission('update', 'issue'), async (req,
 
     // Enqueue notification deterministically after primary DB operation & audit log.
     // Failure is isolated via try/catch — it must never cause the request to fail or roll back.
-    const issueId = ensureString(result.id);
     if (issueId) {
       try {
         const userRes = await query('SELECT email FROM users WHERE id=$1', [actorId]);

@@ -17,7 +17,7 @@ describe('NEXUS RBAC Middleware Integration Tests', () => {
       const userRole = req.headers['x-test-user-role'];
       if (userRole) {
         req.user = {
-          id: req.headers['x-test-user-id'] || 'usr_test_default',
+          id: req.headers['x-test-user-id'] || 'usr_03',
           role: userRole
         };
       }

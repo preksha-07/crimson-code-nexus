@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { query } from '../db/pool.js';
 import { HttpError } from '../shared/http.js';
+import { checkPermission } from '../security/rbac/middleware.js';
+import { assertProjectAccess, assertReleaseAccess, param, type AuthUser } from '../security/rbac/authorization.js';
 
 export const releaseRouter = Router();
 
@@ -26,19 +28,48 @@ function mapRelease(r: Record<string, unknown>) {
   };
 }
 
-releaseRouter.get('/', async (req, res, next) => {
+releaseRouter.get('/', checkPermission('read', 'issue'), async (req, res, next) => {
   try {
-    const r = await query(
-      'SELECT * FROM releases WHERE ($1::varchar IS NULL OR project_id=$1) ORDER BY target_date NULLS LAST, created_at DESC',
-      [req.query.projectId ?? null]
-    );
+    const user = (req as any).user as AuthUser;
+    const reqProjectId = typeof req.query.projectId === 'string' ? req.query.projectId : null;
+
+    if (reqProjectId) {
+      await assertProjectAccess(user, reqProjectId, 'release');
+    }
+
+    let r;
+    if (user.role === 'ADMIN' || user.role === 'SECURITY_REVIEWER') {
+      r = await query(
+        'SELECT * FROM releases WHERE ($1::varchar IS NULL OR project_id=$1) ORDER BY target_date NULLS LAST, created_at DESC',
+        [reqProjectId]
+      );
+    } else {
+      if (reqProjectId) {
+        r = await query(
+          'SELECT * FROM releases WHERE project_id = $1 ORDER BY target_date NULLS LAST, created_at DESC',
+          [reqProjectId]
+        );
+      } else {
+        r = await query(
+          `SELECT r.* FROM releases r
+           JOIN project_members pm ON r.project_id = pm.project_id
+           WHERE pm.user_id = $1
+           ORDER BY r.target_date NULLS LAST, r.created_at DESC`,
+          [user.id]
+        );
+      }
+    }
+
     res.json({ data: r.rows.map(mapRelease) });
   } catch (e) { next(e); }
 });
 
-releaseRouter.post('/', async (req, res, next) => {
+releaseRouter.post('/', checkPermission('create', 'issue'), async (req, res, next) => {
   try {
+    const user = (req as any).user as AuthUser;
     const d = schema.parse(req.body);
+    await assertProjectAccess(user, d.projectId, 'release');
+
     if (!(await query('SELECT 1 FROM projects WHERE id=$1', [d.projectId])).rowCount) {
       throw new HttpError(422, 'PROJECT_NOT_FOUND', 'Project does not exist.');
     }
@@ -51,9 +82,13 @@ releaseRouter.post('/', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-releaseRouter.get('/:id', async (req, res, next) => {
+releaseRouter.get('/:id', checkPermission('read', 'issue'), async (req, res, next) => {
   try {
-    const r = await query('SELECT * FROM releases WHERE id=$1', [req.params.id]);
+    const user = (req as any).user as AuthUser;
+    const releaseId = param(req.params.id);
+    await assertReleaseAccess(user, releaseId, 'release');
+
+    const r = await query('SELECT * FROM releases WHERE id=$1', [releaseId]);
     if (!r.rowCount) throw new HttpError(404, 'RELEASE_NOT_FOUND', 'Release does not exist.');
     res.json({ data: mapRelease(r.rows[0]) });
   } catch (e) { next(e); }

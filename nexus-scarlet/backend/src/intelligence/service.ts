@@ -97,7 +97,14 @@ export async function getIssueDuplicates(issueId: string) {
 export async function getIssueRelated(issueId: string) {
   const target = await getIssue(issueId);
   const issuesRes = await query('SELECT id, project_id, title, description, component, issue_type, status FROM issues WHERE project_id=$1', [target.projectId]);
-  const depsRes = await query('SELECT issue_id, depends_on_issue_id, relation FROM issue_dependencies');
+  const depsRes = await query(
+    `SELECT d.issue_id, d.depends_on_issue_id, d.relation
+     FROM issue_dependencies d
+     JOIN issues i1 ON i1.id = d.issue_id
+     JOIN issues i2 ON i2.id = d.depends_on_issue_id
+     WHERE i1.project_id = $1 AND i2.project_id = $1`,
+    [target.projectId]
+  );
 
   const allIssues = issuesRes.rows.map(r => ({
     id: r.id as string,
@@ -150,7 +157,13 @@ export async function getReleaseRiskScore(releaseId: string) {
     [releaseId]
   );
 
-  const depsRes = await query('SELECT DISTINCT issue_id FROM issue_dependencies WHERE relation=$1', ['BLOCKS']);
+  const depsRes = await query(
+    `SELECT DISTINCT d.issue_id
+     FROM issue_dependencies d
+     JOIN issues i ON i.id = d.issue_id
+     WHERE d.relation=$1 AND i.release_id=$2`,
+    ['BLOCKS', releaseId]
+  );
   const blockedIds = new Set(depsRes.rows.map(r => r.issue_id as string));
 
   const issueContexts = issuesRes.rows.map(r => {

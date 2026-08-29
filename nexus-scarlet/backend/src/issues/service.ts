@@ -2,6 +2,7 @@ import { pool, query } from '../db/pool.js';
 import { HttpError } from '../shared/http.js';
 import { assertTransition, type IssueStatus } from '../core/workflow.js';
 import { issueCreateSchema, issueUpdateSchema } from './schema.js';
+import type { AuthUser } from '../security/rbac/authorization.js';
 
 const row = (r: Record<string, unknown>) => ({
   id: r.id, projectId: r.project_id, title: r.title, description: r.description, status: r.status,
@@ -20,12 +21,19 @@ async function ensureUser(id: string) {
     throw new HttpError(422, 'USER_NOT_FOUND', 'User does not exist.');
 }
 
-export async function listIssues(params: {
-  projectId?: string; status?: string; assigneeId?: string; limit: number; offset: number;
-}) {
+export async function listIssues(
+  params: {
+    projectId?: string; status?: string; assigneeId?: string; limit: number; offset: number;
+  },
+  user?: AuthUser
+) {
   const values: unknown[] = [];
   const where: string[] = [];
   if (params.projectId) { values.push(params.projectId); where.push(`project_id=$${values.length}`); }
+  if (user && user.role !== 'ADMIN' && user.role !== 'SECURITY_REVIEWER') {
+    values.push(user.id);
+    where.push(`project_id IN (SELECT project_id FROM project_members WHERE user_id=$${values.length})`);
+  }
   if (params.status)    { values.push(params.status);    where.push(`status=$${values.length}`); }
   if (params.assigneeId){ values.push(params.assigneeId); where.push(`assignee_id=$${values.length}`); }
   values.push(params.limit, params.offset);
