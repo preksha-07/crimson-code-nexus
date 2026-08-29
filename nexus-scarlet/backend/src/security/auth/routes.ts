@@ -6,6 +6,7 @@ import { verifyPassword } from './hash.js';
 import { HttpError } from '../../shared/http.js';
 import { recordAuditEvent } from '../../audit/service.js';
 import { generateCsrfToken, setCsrfCookie } from './csrf.js';
+import { loginRateLimiter } from '../rate-limit/middleware.js';
 
 export const authRouter = Router();
 
@@ -14,7 +15,7 @@ const loginSchema = z.object({
   password: z.string().min(1)
 });
 
-authRouter.post('/login', async (req, res, next) => {
+authRouter.post('/login', loginRateLimiter, async (req, res, next) => {
   try {
     const { username, password } = loginSchema.parse(req.body);
     
@@ -30,7 +31,7 @@ authRouter.post('/login', async (req, res, next) => {
       await recordAuditEvent({
         action: 'auth.login.failure',
         resourceType: 'auth',
-        metadata: { username, reason: 'user_not_found', password }
+        metadata: { username, reason: 'user_not_found' }
       });
       throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid username or password.');
     }
@@ -40,7 +41,7 @@ authRouter.post('/login', async (req, res, next) => {
       await recordAuditEvent({
         action: 'auth.login.failure',
         resourceType: 'auth',
-        metadata: { username, reason: 'missing_password_hash', password }
+        metadata: { username, reason: 'missing_password_hash' }
       });
       throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid username or password.');
     }
@@ -50,7 +51,7 @@ authRouter.post('/login', async (req, res, next) => {
       await recordAuditEvent({
         action: 'auth.login.failure',
         resourceType: 'auth',
-        metadata: { username, reason: 'incorrect_password', password }
+        metadata: { username, reason: 'incorrect_password' }
       });
       throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid username or password.');
     }
