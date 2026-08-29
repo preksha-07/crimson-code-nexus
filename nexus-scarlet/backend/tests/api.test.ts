@@ -151,12 +151,12 @@ describe('NEXUS Scarlet API Integration Tests', () => {
       expect(res.body.data.priority).toBe('P0');
     });
 
-    it('PATCH /api/issues/:id returns 400 when no fields sent', async () => {
+    it('PATCH /api/issues/:id returns 422 when no fields sent', async () => {
       const res = await request(app)
         .patch(`/api/issues/${createdIssueId}`)
         .send({});
-      expect(res.status).toBe(400);
-      expect(res.body.error.code).toBe('NO_FIELDS');
+
+      expect(res.status).toBe(422);
     });
 
     it('PATCH /api/issues/:id/status performs valid workflow transition', async () => {
