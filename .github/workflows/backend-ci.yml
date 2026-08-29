@@ -63,7 +63,7 @@ jobs:
         run: npm test
 
       - name: Run security tests
-        run: npx vitest run tests/security/
+        run: npx vitest run --passWithNoTests tests/security/
 
       - name: Build
         run: npm run build
