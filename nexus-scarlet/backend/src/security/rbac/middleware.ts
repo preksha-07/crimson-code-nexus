@@ -19,11 +19,11 @@ export function checkPermission(action: string, resourceType: string) {
       return next(new HttpError(401, 'UNAUTHORIZED', 'Authentication is required.'));
     }
 
-    // 2. Resource Resolution
-    // Construct the minimum resource representation required by the existing Raven RBAC contract.
-    // Do not invent ownership, assignment, privacy, or database authorization rules.
+    const getParam = (value: string | string[] | undefined): string | undefined =>
+      typeof value === 'string' ? value : undefined;
+
     const resource = {
-      id: req.params.id || req.params.issueId || 'new',
+      id: getParam(req.params.id) ?? getParam(req.params.issueId) ?? 'new',
       type: resourceType
     };
 
