@@ -38,11 +38,8 @@ issueRouter.post('/', checkPermission('create', 'issue'), async (req,res,next) =
       metadata: { projectId: data.projectId, title: data.title }
     });
 
-    // 1. Primary DB operation committed; send the HTTP response immediately.
-    res.status(201).json({ data });
-
-    // 2. After response is sent, enqueue notification deterministically.
-    //    Failure is isolated — it must never affect the already-sent 201.
+    // Enqueue notification deterministically after primary DB operation & audit log.
+    // Failure is isolated via try/catch — it must never cause the request to fail or roll back.
     const issueId = ensureString(data.id);
     if (issueId) {
       try {
@@ -61,6 +58,8 @@ issueRouter.post('/', checkPermission('create', 'issue'), async (req,res,next) =
         console.error('[Notification Enqueue Failure]:', err);
       }
     }
+
+    res.status(201).json({ data });
   } catch(e){next(e);}
 });
 
@@ -82,10 +81,8 @@ issueRouter.patch('/:id/status', checkPermission('update', 'issue'), async (req,
       metadata: { toStatus: data.toStatus, reason: data.reason }
     });
 
-    // 1. Primary DB committed; send response first.
-    res.json({ data: result });
-
-    // 2. Enqueue deterministically after response; failures are isolated.
+    // Enqueue notification deterministically after primary DB operation & audit log.
+    // Failure is isolated via try/catch — it must never cause the request to fail or roll back.
     const issueId = ensureString(result.id);
     if (issueId) {
       try {
@@ -104,5 +101,7 @@ issueRouter.patch('/:id/status', checkPermission('update', 'issue'), async (req,
         console.error('[Notification Enqueue Failure]:', err);
       }
     }
+
+    res.json({ data: result });
   } catch(e){next(e);}
 });
