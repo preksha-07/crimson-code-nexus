@@ -1,12 +1,23 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import ProtectedRoute from '../../src/components/security/ProtectedRoute';
+import { apiClient } from '../../src/lib/api/client';
+
+// Mock the apiClient to prevent real network calls and control session responses
+vi.mock('../../src/lib/api/client', () => {
+  return {
+    apiClient: {
+      get: vi.fn(),
+    },
+  };
+});
 
 describe('ProtectedRoute Security Guards', () => {
   beforeEach(() => {
     localStorage.clear();
+    vi.clearAllMocks();
   });
 
   const ProtectedComponent = () => <div>Protected Content</div>;
@@ -30,36 +41,45 @@ describe('ProtectedRoute Security Guards', () => {
     );
   };
 
-  it('redirects to /login when no session exists (unauthenticated)', () => {
+  it('redirects to /login when no session exists (unauthenticated)', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: { user: null } });
+    
     renderWithRouter();
+    
+    // Await redirect transition
+    expect(await screen.findByText('Login Screen')).toBeInTheDocument();
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
-    expect(screen.getByText('Login Screen')).toBeInTheDocument();
   });
 
-  it('permits access to protected component when valid session exists', () => {
-    localStorage.setItem(
-      'nexus_current_user',
-      JSON.stringify({ name: 'sarah', token: 'valid-token-123' })
-    );
+  it('permits access to protected component when valid session exists', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: { user: { id: 'usr_03', role: 'DEVELOPER', displayName: 'Dev Kumar' } }
+    });
+    
     renderWithRouter();
-    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+    
+    // Await transition into guarded view
+    expect(await screen.findByText('Protected Content')).toBeInTheDocument();
     expect(screen.queryByText('Login Screen')).not.toBeInTheDocument();
   });
 
-  it('redirects to /login when session is malformed', () => {
-    localStorage.setItem('nexus_current_user', 'invalid-json-data');
+  it('redirects to /login when session is malformed', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: { user: null } });
+    
     renderWithRouter();
+    
+    // Await redirect transition
+    expect(await screen.findByText('Login Screen')).toBeInTheDocument();
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
-    expect(screen.getByText('Login Screen')).toBeInTheDocument();
   });
 
-  it('redirects to /login when token is missing in session', () => {
-    localStorage.setItem(
-      'nexus_current_user',
-      JSON.stringify({ name: 'sarah' }) // no token
-    );
+  it('redirects to /login when token is missing in session', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: { user: null } });
+    
     renderWithRouter();
+    
+    // Await redirect transition
+    expect(await screen.findByText('Login Screen')).toBeInTheDocument();
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
-    expect(screen.getByText('Login Screen')).toBeInTheDocument();
   });
 });
