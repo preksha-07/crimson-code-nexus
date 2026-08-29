@@ -32,8 +32,7 @@ describe('NEXUS RBAC Middleware Integration Tests', () => {
   });
 
   afterAll(async () => {
-    await pool.end();
-  });
+    });
 
   it('GET /api/issues without authenticated user returns 401 Unauthorized', async () => {
     const res = await request(app).get('/api/issues');

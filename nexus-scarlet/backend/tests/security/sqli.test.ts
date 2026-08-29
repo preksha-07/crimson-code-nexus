@@ -35,8 +35,7 @@ describe('NEXUS SQL Injection (SQLi) Integration Tests', () => {
   });
 
   afterAll(async () => {
-    await pool.end();
-  });
+    });
 
   it('SQLi check on GET /api/issues search filters (BLOCKED BY TEST ENVIRONMENT if DB is down)', async (ctx) => {
     if (!isDbConnected) {

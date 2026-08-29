@@ -1,13 +1,8 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { app } from '../../src/app.js';
-import { pool } from '../../src/db/pool.js';
 
 describe('NEXUS Security Headers Integration Tests', () => {
-
-  afterAll(async () => {
-    await pool.end();
-  });
 
   it('GET /health returns Helmet security headers', async () => {
     const res = await request(app).get('/health');

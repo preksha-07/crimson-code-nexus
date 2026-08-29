@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { query } from '../db/pool.js';
 import { HttpError } from '../shared/http.js';
+import { recordAuditEvent } from '../audit/service.js';
 
 export const commentRouter = Router();
 const schema=z.object({authorId:z.string().min(1).optional(),body:z.string().trim().min(1).max(10000)});
@@ -15,5 +16,14 @@ commentRouter.post('/issues/:issueId/comments',async(req,res,next)=>{try{
   if(!(await query('SELECT 1 FROM issues WHERE id=$1',[req.params.issueId])).rowCount)throw new HttpError(404,'ISSUE_NOT_FOUND','Issue does not exist.');
   const id=`com_${Date.now().toString(36)}`;
   const r=await query('INSERT INTO issue_comments(id,issue_id,author_id,body) VALUES($1,$2,$3,$4) RETURNING *',[id,req.params.issueId,authorId,d.body]);
+  
+  await recordAuditEvent({
+    actorId: authorId,
+    action: 'comment.create',
+    resourceType: 'comment',
+    resourceId: r.rows[0].id,
+    metadata: { issueId: req.params.issueId }
+  });
+
   res.status(201).json({data:r.rows[0]});
 }catch(e){next(e);}});

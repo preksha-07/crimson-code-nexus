@@ -24,8 +24,8 @@ describe('NEXUS Scarlet API Integration Tests', () => {
     }
   });
 
-  afterAll(async () => {
-    await pool.end();
+  afterAll(() => {
+    // pool is a shared singleton — do not close it here.
   });
 
   describe('GET /health', () => {

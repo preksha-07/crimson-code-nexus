@@ -33,8 +33,7 @@ describe('NEXUS Cross-Site Scripting (XSS) Input & Storage Tests', () => {
   });
 
   afterAll(async () => {
-    await pool.end();
-  });
+    });
 
   it('XSS payload input and raw storage check (BLOCKED BY TEST ENVIRONMENT if DB is down)', async (ctx) => {
     if (!isDbConnected) {

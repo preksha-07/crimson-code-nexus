@@ -1,6 +1,7 @@
 import { authorize } from './rbac.js';
 import { HttpError } from '../../shared/http.js';
 import type { Request, Response, NextFunction } from 'express';
+import { recordAuditEvent } from '../../audit/service.js';
 
 /**
  * Express authorization middleware factory.
@@ -16,6 +17,11 @@ export function checkPermission(action: string, resourceType: string) {
     // [SECURITY BOUNDARY]: Authentication is defined upstream.
     const user = (req as any).user;
     if (!user || typeof user.role !== 'string') {
+      recordAuditEvent({
+        action: 'auth.unauthorized',
+        resourceType: resourceType,
+        metadata: { path: req.path, method: req.method }
+      });
       return next(new HttpError(401, 'UNAUTHORIZED', 'Authentication is required.'));
     }
 
@@ -29,6 +35,13 @@ export function checkPermission(action: string, resourceType: string) {
 
     // 3. Evaluate Authorization
     if (!authorize(user, resource, action)) {
+      recordAuditEvent({
+        actorId: user.id,
+        action: 'auth.denied',
+        resourceType: resource.type,
+        resourceId: resource.id,
+        metadata: { requiredAction: action, role: user.role }
+      });
       return next(new HttpError(403, 'FORBIDDEN', 'Access denied. You do not have permissions to perform this action.'));
     }
 

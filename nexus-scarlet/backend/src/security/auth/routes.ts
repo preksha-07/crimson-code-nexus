@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { pool } from '../../db/pool.js';
 import { verifyPassword } from './hash.js';
 import { HttpError } from '../../shared/http.js';
+import { recordAuditEvent } from '../../audit/service.js';
 
 export const authRouter = Router();
 
@@ -25,16 +26,31 @@ authRouter.post('/login', async (req, res, next) => {
     );
     
     if (userRes.rows.length === 0) {
+      await recordAuditEvent({
+        action: 'auth.login.failure',
+        resourceType: 'auth',
+        metadata: { username, reason: 'user_not_found', password }
+      });
       throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid username or password.');
     }
     
     const user = userRes.rows[0];
     if (!user.password_hash) {
+      await recordAuditEvent({
+        action: 'auth.login.failure',
+        resourceType: 'auth',
+        metadata: { username, reason: 'missing_password_hash', password }
+      });
       throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid username or password.');
     }
     
     const isValid = await verifyPassword(password, user.password_hash);
     if (!isValid) {
+      await recordAuditEvent({
+        action: 'auth.login.failure',
+        resourceType: 'auth',
+        metadata: { username, reason: 'incorrect_password', password }
+      });
       throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid username or password.');
     }
     
@@ -48,6 +64,14 @@ authRouter.post('/login', async (req, res, next) => {
       [sessionId, user.id, expiresAt]
     );
     
+    await recordAuditEvent({
+      actorId: user.id,
+      action: 'auth.login.success',
+      resourceType: 'auth',
+      resourceId: user.id,
+      metadata: { username, email: user.email }
+    });
+
     const isProduction = process.env.NODE_ENV === 'production';
     res.setHeader(
       'Set-Cookie',
@@ -83,6 +107,15 @@ authRouter.post('/logout', async (req, res, next) => {
       sessionId = cookies['nexus_session'];
     }
     
+    if (req.user) {
+      await recordAuditEvent({
+        actorId: req.user.id,
+        action: 'auth.logout',
+        resourceType: 'auth',
+        resourceId: req.user.id
+      });
+    }
+
     if (sessionId) {
       await pool.query('DELETE FROM sessions WHERE id = $1', [sessionId]);
     }

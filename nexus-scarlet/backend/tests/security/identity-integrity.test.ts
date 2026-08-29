@@ -32,8 +32,7 @@ describe('IDENTITY INTEGRITY & IMPERSONATION REGRESSION TESTS (Phase 6)', () => 
   });
 
   afterAll(async () => {
-    await pool.end();
-  });
+    });
 
   it('proves usr_03 cannot impersonate usr_01 on issue creation (reporterId is derived from session) (BLOCKED BY DB if offline)', async (ctx) => {
     if (!isDbConnected) {
