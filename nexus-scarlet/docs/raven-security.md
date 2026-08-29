@@ -11,23 +11,31 @@ Raven is responsible for establishing the threat defenses and secure workflows w
 - Credentials and leaked secrets detection (Secret Sentinel).
 - Security headers and Cookie directives specification.
 - Threat modeling, vulnerability tracing, and test fixtures provision.
+- Frontend verification, output rendering audits, and UI protected routing.
 
 ---
 
 ## 2. Handover Inventory
 
 ### Implemented & Integrated
-- **RBAC Express Middleware (`src/security/rbac/middleware.ts`)**: Reusable authorization middleware factory `checkPermission(action, resourceType)`. It expects `req.user` to be set by upstream authentication and evaluates access using the standalone evaluator.
-- **RBAC Issue API Mounts (`src/issues/routes.ts`)**: Mounted permissions checks on list, get, create, update, delete, and transition status routes.
-- **Security Type Declarations (`src/security/**/*.d.ts`)**: Type definitions allowing Scarlet's TypeScript codebase to import and use the framework-agnostic JavaScript security foundation with strict compile checks.
-- **API Security Coverage Audit (`docs/api-security-audit.md`)**: Comprehensive endpoint mapping audit outlining RBAC action models, verification enforcements, validation gaps, and future Phase 4B implementation orders.
-- **Vitest Integration Tests (`tests/security/`)**:
+- **RBAC Express Middleware (`nexus-scarlet/backend/src/security/rbac/middleware.ts`)**: Reusable authorization middleware factory `checkPermission(action, resourceType)`. Mapped on Issue API.
+- **Vixen UI Protected Router (`src/components/security/ProtectedRoute.tsx` & `src/app/routes.tsx`)**: Secure route guard wrapping Dashboard, Projects, Issues, and Security pages to enforce local session validation.
+- **API Security Coverage Audit (`docs/api-security-audit.md`)**: Complete Express endpoint mapping, parameters, and vulnerability inventory.
+- **Vixen Frontend Security Audit (`docs/vixen-security.md`)**: DOM pattern scan, localStorage audit, and frontend/backend security boundary details.
+- **Frontend security tests (`tests/security/`)**:
+  - `xss-rendering.test.tsx`: Verifies React text rendering and `SecretSentinel` escape HTML/script payloads safely.
+  - `auth-session.test.tsx`: Verifies demo login session creation, clearance, and malformed JSON resilience.
+  - `protected-routes.test.tsx`: Verifies that `ProtectedRoute` blocks unauthenticated views and handles malformed sessions.
+  - `role-ui.test.tsx`: Confirms log layout and roles rendering are stable under arbitrary inputs.
+  - `secret-sentinel.test.tsx`: Verifies client-side regex detection/redaction of credentials and tokens.
+  - `api-client.test.ts`: Verifies generic fetch client parameters encoding, non-2xx failures, and empty text parsing.
+- **Backend security tests (`nexus-scarlet/backend/tests/security/`)**:
   - `rbac-integration.test.ts`: Integration checks for Issue API endpoints using mocked user context.
   - `identity-integrity.test.ts`: Integration tests demonstrating identity impersonation risks on client-supplied ID parameters.
   - `headers.test.ts`: Confirms Helmet response headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options) match project specifications.
   - `sqli.test.ts`: Exercises real database path safety checks (skips dynamically if DB is offline).
   - `xss.test.ts`: Exercises input and storage boundary testing for malicious payloads.
-- **Standalone Unit Tests (`tests/security/`)**: Node native tests (`node --test`) checking `rbac.test.js`, `validation.test.js`, and `secrets.test.js` standalone logic.
+- **Standalone Unit Tests (`nexus-scarlet/backend/tests/security/`)**: Node native tests (`node --test`) checking `rbac.test.js`, `validation.test.js`, and `secrets.test.js` standalone logic.
 
 ### Waiting for Scarlet (DEFINED + BLOCKED BY BACKEND)
 - **Authentication integration**: Validating secure session tokens, storing cookies, and setting `req.user` context upstream.
@@ -53,8 +61,17 @@ The following unit tests run locally using Node's native test runner with 25 pas
 - **`tests/security/validation/validation.test.js`**: Exercises validation schema constraints and strict error checks.
 - **`tests/security/secrets/secrets.test.js`**: Exercises Secret Sentinel detection regexes and redactions.
 
+### Vixen Frontend Security Tests (IMPLEMENTED + PASSING)
+The following tests run locally via Vitest + jsdom + React Testing Library (20 passing assertions):
+- **`tests/security/xss-rendering.test.tsx`**: Verifies React data rendering blocks XSS script tags and event handlers.
+- **`tests/security/auth-session.test.tsx`**: Verifies demo storage operations and malformed input handling.
+- **`tests/security/protected-routes.test.tsx`**: Verifies that UI routes redirect unauthenticated users to `/login`.
+- **`tests/security/role-ui.test.tsx`**: Verifies that custom user roles render stably in timelines.
+- **`tests/security/secret-sentinel.test.tsx`**: Verifies client-side credentials scanning and warning labels.
+- **`tests/security/api-client.test.ts`**: Verifies fetch request errors and parameter encoding.
+
 ### Integration API Tests (IMPLEMENTED + PASSING)
-The following integration tests run locally via Vitest + Supertest:
+The following integration tests run locally via Vitest + Supertest inside `nexus-scarlet/backend`:
 - **`tests/security/rbac-integration.test.ts`**: Verifies 401/403 route blocks and 200/201 permissions on the Issue API.
 - **`tests/security/headers.test.ts`**: Verifies that Helmet's actual response headers (CSP, HSTS, X-Content-Type-Options, X-Frame-Options) are configured correctly.
 
