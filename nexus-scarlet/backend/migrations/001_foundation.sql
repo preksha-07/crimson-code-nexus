@@ -1,0 +1,25 @@
+CREATE TABLE users (
+  id VARCHAR(64) PRIMARY KEY,
+  display_name VARCHAR(120) NOT NULL,
+  email VARCHAR(320) NOT NULL UNIQUE,
+  role VARCHAR(32) NOT NULL CHECK (role IN ('ADMIN','PROJECT_MANAGER','DEVELOPER','SECURITY_REVIEWER','VIEWER')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE projects (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(160) NOT NULL,
+  key VARCHAR(32) NOT NULL UNIQUE,
+  description TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE project_members (
+  project_id VARCHAR(64) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  PRIMARY KEY (project_id, user_id)
+);
+
+CREATE INDEX idx_project_members_user ON project_members(user_id);
