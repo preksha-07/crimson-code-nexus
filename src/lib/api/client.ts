@@ -129,6 +129,12 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<T> {
   try {
+    const csrfToken = document.cookie
+    .split('; ')
+    .find((cookie) => cookie.startsWith('nexus_csrf='))
+    ?.split('=')
+    .slice(1)
+    .join('=');
     const response = await fetch(
       `${API_BASE_URL}${endpoint}`,
       {
@@ -136,8 +142,11 @@ async function request<T>(
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...(csrfToken
+          ? { 'X-CSRF-Token': csrfToken }
+          : {}),
           ...options.headers,
-        },
+      },
       }
     );
 

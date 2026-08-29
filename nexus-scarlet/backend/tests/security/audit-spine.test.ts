@@ -3,13 +3,15 @@ import request from 'supertest';
 import { app } from '../../src/app.js';
 import { pool, query } from '../../src/db/pool.js';
 import { recordAuditEvent } from '../../src/audit/service.js';
+import { makeCsrfPair } from '../helpers/csrf.js';
 
 describe('Raven Audit Spine Integration Tests', () => {
   let isDbConnected = false;
+  const { csrfCookie, csrfToken } = makeCsrfPair();
 
   beforeAll(async () => {
     // Inject mock authentication for tests (usr_03 Developer)
-    const mockAuth = (req: any, res: any, next: any) => {
+    const mockAuth = (req: any, _res: any, next: any) => {
       req.user = { id: 'usr_03', role: 'DEVELOPER', displayName: 'Dev Kumar' };
       next();
     };
@@ -47,6 +49,8 @@ describe('Raven Audit Spine Integration Tests', () => {
     // 1. Create an issue to trigger issue.create audit event
     const res = await request(app)
       .post('/api/issues')
+      .set('Cookie', csrfCookie)
+      .set('X-CSRF-Token', csrfToken)
       .send({
         projectId: 'proj_01',
         title: testDescription,
@@ -66,7 +70,7 @@ describe('Raven Audit Spine Integration Tests', () => {
 
     expect(auditRes.rows.length).toBe(1);
     const auditEvent = auditRes.rows[0];
-    
+
     expect(auditEvent.actor_id).toBe('usr_03');
     expect(auditEvent.resource_type).toBe('issue');
     expect(auditEvent.resource_id).toBe(issueId);
@@ -124,9 +128,13 @@ describe('Raven Audit Spine Integration Tests', () => {
     });
 
     try {
-      // Perform issue creation
+      // Perform issue creation — the CSRF cookie+header pair is in scope.
+      // The pool.query spy only blocks audit_events inserts, not issue or
+      // notification_jobs inserts, so CSRF/issue creation still succeeds.
       const res = await request(app)
         .post('/api/issues')
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({
           projectId: 'proj_01',
           title: 'Fail-Safe Audit Test Issue',

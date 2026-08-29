@@ -1,14 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../../src/app.js';
-import { pool, query } from '../../src/db/pool.js';
+import { query } from '../../src/db/pool.js';
+import { makeCsrfPair } from '../helpers/csrf.js';
 
 describe('NEXUS Cross-Site Scripting (XSS) Input & Storage Tests', () => {
   let isDbConnected = false;
+  const { csrfCookie, csrfToken } = makeCsrfPair();
 
   beforeAll(async () => {
     // Inject mock authentication for test endpoints (so we don't block on RBAC)
-    const mockAuth = (req: any, res: any, next: any) => {
+    const mockAuth = (req: any, _res: any, next: any) => {
       req.user = { id: 'usr_01', role: 'ADMIN' };
       next();
     };
@@ -32,8 +34,7 @@ describe('NEXUS Cross-Site Scripting (XSS) Input & Storage Tests', () => {
     }
   });
 
-  afterAll(async () => {
-    });
+  afterAll(() => {});
 
   it('XSS payload input and raw storage check (BLOCKED BY TEST ENVIRONMENT if DB is down)', async (ctx) => {
     if (!isDbConnected) {
@@ -47,6 +48,8 @@ describe('NEXUS Cross-Site Scripting (XSS) Input & Storage Tests', () => {
     const res = await request(app)
       .post('/api/issues')
       .set('x-test-user-role', 'ADMIN')
+      .set('Cookie', csrfCookie)
+      .set('X-CSRF-Token', csrfToken)
       .send({
         projectId: 'proj_01',
         title: 'XSS Test Issue',
@@ -55,8 +58,8 @@ describe('NEXUS Cross-Site Scripting (XSS) Input & Storage Tests', () => {
       });
 
     expect(res.status).toBe(201);
-    
-    // The backend should return the payload literally, proving it does not modify/sanitize input 
+
+    // The backend should return the payload literally, proving it does not modify/sanitize input
     // on storage, delegating browser script execution safety entirely to the frontend (BLOCKED BY FRONTEND).
     expect(res.body.data.description).toBe(xssPayload);
   });

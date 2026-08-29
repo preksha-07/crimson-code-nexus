@@ -13,13 +13,15 @@ import { releaseRouter } from './releases/routes.js';
 import { intelligenceRouter } from './intelligence/routes.js';
 import { authenticateSession } from './security/auth/middleware.js';
 import { authRouter } from './security/auth/routes.js';
-
+import { requireCsrf } from './security/auth/csrf.js';
 export const app = express();
+
 app.use(helmet());
 app.use(cors({ origin: env.corsOrigin, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(requestId);
 app.use(authenticateSession);
+app.use(requireCsrf);
 
 app.get('/health', async (_req, res, next) => {
   try {

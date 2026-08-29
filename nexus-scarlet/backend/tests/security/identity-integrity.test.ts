@@ -1,14 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../../src/app.js';
-import { pool, query } from '../../src/db/pool.js';
+import { query } from '../../src/db/pool.js';
+import { makeCsrfPair } from '../helpers/csrf.js';
 
 describe('IDENTITY INTEGRITY & IMPERSONATION REGRESSION TESTS (Phase 6)', () => {
   let isDbConnected = false;
+  const { csrfCookie, csrfToken } = makeCsrfPair();
 
   beforeAll(async () => {
     // Mock user context as usr_03 (Developer) to represent the authenticated session
-    const mockAuth = (req: any, res: any, next: any) => {
+    const mockAuth = (req: any, _res: any, next: any) => {
       req.user = { id: 'usr_03', role: 'DEVELOPER', displayName: 'Dev Kumar' };
       next();
     };
@@ -31,8 +33,7 @@ describe('IDENTITY INTEGRITY & IMPERSONATION REGRESSION TESTS (Phase 6)', () => 
     }
   });
 
-  afterAll(async () => {
-    });
+  afterAll(() => {});
 
   it('proves usr_03 cannot impersonate usr_01 on issue creation (reporterId is derived from session) (BLOCKED BY DB if offline)', async (ctx) => {
     if (!isDbConnected) {
@@ -45,6 +46,8 @@ describe('IDENTITY INTEGRITY & IMPERSONATION REGRESSION TESTS (Phase 6)', () => 
 
     const res = await request(app)
       .post('/api/issues')
+      .set('Cookie', csrfCookie)
+      .set('X-CSRF-Token', csrfToken)
       .send({
         projectId: 'proj_01',
         title: 'Impersonation Regression Test Issue',
@@ -81,18 +84,22 @@ describe('IDENTITY INTEGRITY & IMPERSONATION REGRESSION TESTS (Phase 6)', () => 
     // 1. Create issue
     const createRes = await request(app)
       .post('/api/issues')
+      .set('Cookie', csrfCookie)
+      .set('X-CSRF-Token', csrfToken)
       .send({
         projectId: 'proj_01',
         title: 'Transition Impersonation Test',
         description: 'Testing transition actorId spoofing',
         reporterId: attackerUser
       });
-    
+
     const issueId = createRes.body.data.id;
 
     // 2. Perform transition attempting to spoof actorId
     const res = await request(app)
       .patch(`/api/issues/${issueId}/status`)
+      .set('Cookie', csrfCookie)
+      .set('X-CSRF-Token', csrfToken)
       .send({
         toStatus: 'TRIAGED',
         actorId: victimUser, // Spoofed parameter
@@ -120,13 +127,15 @@ describe('IDENTITY INTEGRITY & IMPERSONATION REGRESSION TESTS (Phase 6)', () => 
 
     const res = await request(app)
       .post('/api/issues/BUG-091/comments')
+      .set('Cookie', csrfCookie)
+      .set('X-CSRF-Token', csrfToken)
       .send({
         authorId: victimUser, // Spoofed parameter
         body: 'Impersonation comment check.'
       });
 
     expect(res.status).toBe(201);
-    
+
     // Verify database record has author_id as usr_03
     const commentId = res.body.data.id;
     const dbComment = await query('SELECT author_id FROM issue_comments WHERE id = $1', [commentId]);
@@ -144,6 +153,8 @@ describe('IDENTITY INTEGRITY & IMPERSONATION REGRESSION TESTS (Phase 6)', () => 
 
     const res = await request(app)
       .post('/api/issues/BUG-091/attachments')
+      .set('Cookie', csrfCookie)
+      .set('X-CSRF-Token', csrfToken)
       .send({
         uploadedBy: victimUser, // Spoofed parameter
         fileName: 'impersonation_test.txt',

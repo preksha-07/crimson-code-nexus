@@ -1,15 +1,19 @@
 import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../src/app.js';
-import { pool } from '../src/db/pool.js';
+import { makeCsrfPair } from './helpers/csrf.js';
 
 describe('NEXUS Scarlet API Integration Tests', () => {
   let createdProjectId: string;
   let createdIssueId: string;
   let createdReleaseId: string;
 
+  // A single CSRF pair shared across all state-changing requests in this suite.
+  // The pair is valid (cookie token === header token) so requireCsrf passes.
+  const { csrfCookie, csrfToken } = makeCsrfPair();
+
   beforeAll(() => {
-    const mockAuth = (req: any, res: any, next: any) => {
+    const mockAuth = (req: any, _res: any, next: any) => {
       req.user = { id: 'usr_01', role: 'ADMIN' };
       next();
     };
@@ -51,6 +55,8 @@ describe('NEXUS Scarlet API Integration Tests', () => {
       const uniqueKey = `TST${Date.now().toString().slice(-4)}`;
       const res = await request(app)
         .post('/api/projects')
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({
           name: 'Test Project',
           key: uniqueKey,
@@ -83,6 +89,8 @@ describe('NEXUS Scarlet API Integration Tests', () => {
     it('POST /api/releases creates a release', async () => {
       const res = await request(app)
         .post('/api/releases')
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({
           projectId: 'proj_01',
           version: `9.${Date.now().toString().slice(-4)}.0`,
@@ -121,6 +129,8 @@ describe('NEXUS Scarlet API Integration Tests', () => {
     it('POST /api/issues creates an issue', async () => {
       const res = await request(app)
         .post('/api/issues')
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({
           projectId: 'proj_01',
           title: 'API Test Issue',
@@ -158,6 +168,8 @@ describe('NEXUS Scarlet API Integration Tests', () => {
     it('PATCH /api/issues/:id updates issue fields', async () => {
       const res = await request(app)
         .patch(`/api/issues/${createdIssueId}`)
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({
           title: 'Updated API Test Issue',
           priority: 'P0'
@@ -170,6 +182,8 @@ describe('NEXUS Scarlet API Integration Tests', () => {
     it('PATCH /api/issues/:id returns 422 when no fields sent', async () => {
       const res = await request(app)
         .patch(`/api/issues/${createdIssueId}`)
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({});
       expect(res.status).toBe(422);
     });
@@ -177,6 +191,8 @@ describe('NEXUS Scarlet API Integration Tests', () => {
     it('PATCH /api/issues/:id/status performs valid workflow transition', async () => {
       const res = await request(app)
         .patch(`/api/issues/${createdIssueId}/status`)
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({
           toStatus: 'TRIAGED',
           actorId: 'usr_02',
@@ -189,6 +205,8 @@ describe('NEXUS Scarlet API Integration Tests', () => {
     it('PATCH /api/issues/:id/status rejects invalid transition with 409', async () => {
       const res = await request(app)
         .patch(`/api/issues/${createdIssueId}/status`)
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({
           toStatus: 'RESOLVED',
           actorId: 'usr_02'
@@ -200,6 +218,8 @@ describe('NEXUS Scarlet API Integration Tests', () => {
     it('DELETE /api/issues/:id deletes issue', async () => {
       const createRes = await request(app)
         .post('/api/issues')
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({
           projectId: 'proj_01',
           title: 'Temporary Issue to Delete',
@@ -208,7 +228,10 @@ describe('NEXUS Scarlet API Integration Tests', () => {
         });
       const tempId = createRes.body.data.id;
 
-      const delRes = await request(app).delete(`/api/issues/${tempId}`);
+      const delRes = await request(app)
+        .delete(`/api/issues/${tempId}`)
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken);
       expect(delRes.status).toBe(204);
 
       const getRes = await request(app).get(`/api/issues/${tempId}`);
@@ -220,6 +243,8 @@ describe('NEXUS Scarlet API Integration Tests', () => {
     it('POST /api/issues/:issueId/comments adds a comment', async () => {
       const res = await request(app)
         .post(`/api/issues/${createdIssueId}/comments`)
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({
           authorId: 'usr_03',
           body: 'Automated test comment.'
@@ -242,6 +267,8 @@ describe('NEXUS Scarlet API Integration Tests', () => {
     it('POST /api/issues/:issueId/dependencies links issues', async () => {
       const res = await request(app)
         .post(`/api/issues/${createdIssueId}/dependencies`)
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({
           dependsOnIssueId: 'BUG-091',
           relation: 'RELATES_TO'
@@ -259,7 +286,10 @@ describe('NEXUS Scarlet API Integration Tests', () => {
     });
 
     it('DELETE /api/issues/:issueId/dependencies/:targetId/:relation removes dependency', async () => {
-      const res = await request(app).delete(`/api/issues/${createdIssueId}/dependencies/BUG-091/RELATES_TO`);
+      const res = await request(app)
+        .delete(`/api/issues/${createdIssueId}/dependencies/BUG-091/RELATES_TO`)
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken);
       expect(res.status).toBe(204);
     });
   });
@@ -268,6 +298,8 @@ describe('NEXUS Scarlet API Integration Tests', () => {
     it('POST /api/issues/:issueId/attachments creates attachment metadata', async () => {
       const res = await request(app)
         .post(`/api/issues/${createdIssueId}/attachments`)
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({
           uploadedBy: 'usr_01',
           fileName: 'log_dump.txt',
@@ -299,6 +331,8 @@ describe('NEXUS Scarlet API Integration Tests', () => {
     it('returns 422 for invalid request body schema', async () => {
       const res = await request(app)
         .post('/api/projects')
+        .set('Cookie', csrfCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({ name: '' }); // Invalid name length
       expect(res.status).toBe(422);
       expect(res.body.error.code).toBe('VALIDATION_ERROR');

@@ -1,14 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../../src/app.js';
-import { pool, query } from '../../src/db/pool.js';
+import { query } from '../../src/db/pool.js';
+import { makeCsrfPair } from '../helpers/csrf.js';
 
 describe('NEXUS SQL Injection (SQLi) Integration Tests', () => {
   let isDbConnected = false;
+  const { csrfCookie, csrfToken } = makeCsrfPair();
 
   beforeAll(async () => {
     // Inject mock authentication for test endpoints (so we don't block on RBAC)
-    const mockAuth = (req: any, res: any, next: any) => {
+    const mockAuth = (req: any, _res: any, next: any) => {
       req.user = { id: 'usr_01', role: 'ADMIN' };
       next();
     };
@@ -34,8 +36,7 @@ describe('NEXUS SQL Injection (SQLi) Integration Tests', () => {
     }
   });
 
-  afterAll(async () => {
-    });
+  afterAll(() => {});
 
   it('SQLi check on GET /api/issues search filters (BLOCKED BY TEST ENVIRONMENT if DB is down)', async (ctx) => {
     if (!isDbConnected) {
@@ -48,9 +49,9 @@ describe('NEXUS SQL Injection (SQLi) Integration Tests', () => {
     const res = await request(app)
       .get("/api/issues?projectId=proj_01' OR '1'='1")
       .set('x-test-user-role', 'ADMIN');
-    
+
     expect(res.status).toBe(200);
-    // Should return 0 issues because the project ID should search literally for "proj_01' OR '1'='1" 
+    // Should return 0 issues because the project ID should search literally for "proj_01' OR '1'='1"
     // rather than running the injection.
     expect(res.body.data.length).toBe(0);
   });
@@ -65,6 +66,8 @@ describe('NEXUS SQL Injection (SQLi) Integration Tests', () => {
     const res = await request(app)
       .post('/api/issues')
       .set('x-test-user-role', 'ADMIN')
+      .set('Cookie', csrfCookie)
+      .set('X-CSRF-Token', csrfToken)
       .send({
         projectId: 'proj_01',
         title: "SQLi test title'; DROP TABLE issues; --",

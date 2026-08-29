@@ -5,6 +5,7 @@ import { pool } from '../../db/pool.js';
 import { verifyPassword } from './hash.js';
 import { HttpError } from '../../shared/http.js';
 import { recordAuditEvent } from '../../audit/service.js';
+import { generateCsrfToken, setCsrfCookie } from './csrf.js';
 
 export const authRouter = Router();
 
@@ -77,6 +78,9 @@ authRouter.post('/login', async (req, res, next) => {
       'Set-Cookie',
       `nexus_session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400;${isProduction ? ' Secure;' : ''}`
     );
+
+    const csrfToken = generateCsrfToken();
+    setCsrfCookie(res, csrfToken);
     
     res.json({
       data: {
@@ -120,9 +124,14 @@ authRouter.post('/logout', async (req, res, next) => {
       await pool.query('DELETE FROM sessions WHERE id = $1', [sessionId]);
     }
     
-    res.setHeader(
+    res.append(
       'Set-Cookie',
       'nexus_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0;'
+    );
+
+    res.append(
+      'Set-Cookie',
+      'nexus_csrf=; Path=/; SameSite=Lax; Max-Age=0;'
     );
     
     res.json({ data: { success: true } });
@@ -132,6 +141,11 @@ authRouter.post('/logout', async (req, res, next) => {
 });
 
 authRouter.get('/me', (req, res) => {
+  if (req.user) {
+    const csrfToken = generateCsrfToken();
+    setCsrfCookie(res, csrfToken);
+  }
+
   res.json({
     data: {
       user: req.user || null

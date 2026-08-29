@@ -22,9 +22,12 @@ import {
   processNextNotificationJob,
   deliveryAdapter,
 } from '../../src/notifications/worker.js';
+import { makeCsrfPair } from '../helpers/csrf.js';
 
 describe('Raven Notification Subsystem Integration Tests', () => {
   let isDbConnected = false;
+  // Shared CSRF pair — needed for POST /api/issues calls that go through requireCsrf.
+  const { csrfCookie, csrfToken } = makeCsrfPair();
 
   beforeAll(async () => {
     // Inject mock authentication as usr_01 (ADMIN) so routes pass RBAC
@@ -178,6 +181,8 @@ describe('Raven Notification Subsystem Integration Tests', () => {
     const title = `Enqueue Test ${Date.now()}`;
     const res = await request(app)
       .post('/api/issues')
+      .set('Cookie', csrfCookie)
+      .set('X-CSRF-Token', csrfToken)
       .send({ projectId: 'proj_01', title, description: 'Notification trigger test' });
 
     expect(res.status).toBe(201);
@@ -207,6 +212,8 @@ describe('Raven Notification Subsystem Integration Tests', () => {
     // normal BUG issue and confirming 201 + DB persistence.
     const res = await request(app)
       .post('/api/issues')
+      .set('Cookie', csrfCookie)
+      .set('X-CSRF-Token', csrfToken)
       .send({
         projectId: 'proj_01',
         title: 'Fail-Safe Notification Issue',
