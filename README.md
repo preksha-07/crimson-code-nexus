@@ -64,7 +64,6 @@ The demo database is pre-seeded with the following privileged accounts (all use 
 * **Backend**: Node.js (NodeNext ESM), Express 5, TypeScript.
 * **Database**: PostgreSQL 17 with 9 ordered SQL schema migrations (`schema_migrations` tracking).
 * **Startup Initialization**: On backend boot (`npm start`), migrations and idempotent seeding (`ON CONFLICT DO NOTHING`) run automatically before HTTP traffic is served.
-* **Representative Dataset**: Pre-seeded with 25 realistic issues (`BUG-091` to `BUG-221`) covering all 9 statuses, 4 severities (`LOW` to `CRITICAL`), and multiple security/infrastructure components.
 
 ---
 
