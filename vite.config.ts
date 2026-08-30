@@ -14,6 +14,10 @@ export default defineConfig({
     },
   },
 
+  preview: {
+    allowedHosts: ['nexus-ix91.onrender.com'],
+  },
+
   test: {
     globals: true,
     environment: 'jsdom',
