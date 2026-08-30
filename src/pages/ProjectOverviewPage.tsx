@@ -1,41 +1,124 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Users,
   History,
   Calendar,
-  BarChart2,
   ArrowLeft,
+  Activity,
+  Compass,
+  PlusCircle,
 } from 'lucide-react';
-import { getDb } from '../lib/api/client';
+import { getProjects, getProjectById } from '../lib/api/projects';
+import { getIssues } from '../lib/api/issues';
+import { getReleases, type Release } from '../lib/api/releases';
+import type { Project } from '../types/project';
+import type { Issue } from '../types/issue';
 
 export default function ProjectOverviewPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
 
-  const [db, setDb] = useState<any>(() => getDb());
+  const [project, setProject] = useState<Project | null>(null);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [releases, setReleases] = useState<Release[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleDbUpdate = () => {
-      setDb(getDb());
+    let mounted = true;
+
+    const loadProjectData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [fetchedProjects, fetchedIssues, fetchedReleases] = await Promise.all([
+          getProjects(),
+          getIssues(),
+          getReleases().catch(() => [] as Release[]),
+        ]);
+
+        if (!mounted) return;
+
+        setAllProjects(fetchedProjects);
+        setIssues(fetchedIssues);
+        setReleases(fetchedReleases);
+
+        let currentProj: Project | null = null;
+        if (projectId) {
+          currentProj = fetchedProjects.find(
+            (p) => p.id === projectId || (p.key && p.key.toLowerCase() === projectId.toLowerCase())
+          ) ?? null;
+
+          if (!currentProj) {
+            try {
+              currentProj = await getProjectById(projectId);
+            } catch {
+              currentProj = null;
+            }
+          }
+        } else {
+          currentProj =
+            fetchedProjects.find((p) => p.id === 'proj_01') ??
+            fetchedProjects.find((p) => p.key?.toUpperCase() === 'NEX') ??
+            fetchedProjects.find((p) => fetchedIssues.some((i) => i.projectId === p.id)) ??
+            fetchedProjects[0] ??
+            null;
+        }
+
+        setProject(currentProj);
+      } catch (err) {
+        if (!mounted) return;
+        setError(err instanceof Error ? err.message : 'Unable to load project telemetry.');
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
     };
 
-    window.addEventListener('nexus_db_updated', handleDbUpdate);
+    loadProjectData();
 
     return () => {
-      window.removeEventListener('nexus_db_updated', handleDbUpdate);
+      mounted = false;
     };
-  }, []);
+  }, [projectId]);
 
-  /*
-   * Find the requested project.
-   * Do not silently fall back to another project when projectId is invalid.
-   */
-  const project = projectId
-    ? db.projects.find((p) => p.id === projectId)
-    : undefined;
+  if (loading) {
+    return (
+      <div
+        className="fade-in"
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '60vh',
+        }}
+      >
+        <div
+          className="nexus-card"
+          style={{
+            width: '100%',
+            maxWidth: '500px',
+            textAlign: 'center',
+          }}
+        >
+          <Activity
+            size={32}
+            style={{
+              color: 'var(--color-cyan)',
+              marginBottom: 'var(--space-4)',
+            }}
+          />
+          <div className="card-title">Loading Project Overview...</div>
+        </div>
+      </div>
+    );
+  }
 
-  if (!project) {
+  if (error || !project) {
     return (
       <div
         className="nexus-card"
@@ -50,7 +133,7 @@ export default function ProjectOverviewPage() {
             marginBottom: 'var(--space-2)',
           }}
         >
-          Project Not Found
+          {error ? 'Telemetry Error' : 'Project Not Found'}
         </h3>
 
         <p
@@ -60,8 +143,7 @@ export default function ProjectOverviewPage() {
             marginBottom: 'var(--space-4)',
           }}
         >
-          The requested project does not exist in the local NEXUS telemetry
-          database.
+          {error || 'The requested project does not exist in the NEXUS system.'}
         </p>
 
         <button
@@ -75,44 +157,21 @@ export default function ProjectOverviewPage() {
     );
   }
 
-  /*
-   * Project issue association.
-   *
-   * Current NEXUS demo project:
-   * nexus-core
-   *
-   * These components are treated as belonging to this project.
-   */
-  const nexusCoreComponents = [
-    'auth-middleware',
-    'database-schema',
-    'query-processor',
-    'container-specs',
-  ];
-
-  const projectIssues = db.issues.filter((issue) => {
-    if (project.id === 'nexus-core') {
-      return nexusCoreComponents.includes(issue.component);
-    }
-
-    return false;
-  });
-
-  const activeIssues = projectIssues.filter(
-    (issue) => issue.status !== 'CLOSED'
+  const projectIssues = issues.filter(
+    (issue) => issue.projectId === project.id
   );
 
-  const criticalIssues = activeIssues.filter(
-    (issue) => issue.severity === 'CRITICAL'
+  const projectReleases = releases.filter(
+    (rel) => rel.projectId === project.id
   );
 
-  const securityIssues = activeIssues.filter(
-    (issue) => issue.visibility !== 'PUBLIC'
-  );
+  const activeIssues = projectIssues.filter((issue) => issue.status !== 'CLOSED');
+  const criticalIssues = activeIssues.filter((issue) => issue.severity === 'CRITICAL');
+  const securityIssues = activeIssues.filter((issue) => issue.visibility !== 'PUBLIC');
+  const verifiedFixes = projectIssues.filter((issue) => issue.status === 'VERIFIED');
 
-  const verifiedFixes = projectIssues.filter(
-    (issue) => issue.status === 'VERIFIED'
-  );
+  const membersList = project.members || [];
+  const activityList = project.recentActivity || [];
 
   return (
     <div
@@ -128,33 +187,43 @@ export default function ProjectOverviewPage() {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 'var(--space-2)',
+          justifyContent: 'space-between',
           flexWrap: 'wrap',
+          gap: 'var(--space-2)',
         }}
       >
-        <button
-          onClick={() => navigate('/')}
-          className="btn btn-secondary"
-          style={{
-            padding: '6px 10px',
-          }}
-        >
-          <ArrowLeft size={14} />
-          Back
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <button
+            onClick={() => navigate('/')}
+            className="btn btn-secondary"
+            style={{ padding: '6px 10px' }}
+          >
+            <ArrowLeft size={14} />
+            Back
+          </button>
 
-        <span style={{ color: 'var(--text-muted)' }}>
-          / Projects /
-        </span>
+          <span style={{ color: 'var(--text-muted)' }}>/ Projects /</span>
 
-        <span
-          style={{
-            color: 'var(--text-primary)',
-            fontWeight: 600,
-          }}
-        >
-          {project.name}
-        </span>
+          <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+            {project.name}
+          </span>
+        </div>
+
+        {allProjects.length > 1 && (
+          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Switch Project:</span>
+            {allProjects.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => navigate(`/projects/${p.id}`)}
+                className={`btn ${p.id === project.id ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '4px 8px', fontSize: '11px' }}
+              >
+                {p.key || p.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Hero Section */}
@@ -204,21 +273,11 @@ export default function ProjectOverviewPage() {
               flexWrap: 'wrap',
             }}
           >
-            <span
-              className="badge badge-cyan"
-              style={{
-                padding: '4px 8px',
-              }}
-            >
+            <span className="badge badge-cyan" style={{ padding: '4px 8px' }}>
               Active Ingest
             </span>
 
-            <span
-              className="badge badge-slate"
-              style={{
-                padding: '4px 8px',
-              }}
-            >
+            <span className="badge badge-slate" style={{ padding: '4px 8px' }}>
               ID: {project.id}
             </span>
           </div>
@@ -228,164 +287,83 @@ export default function ProjectOverviewPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(140px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
             gap: 'var(--space-4)',
             marginTop: 'var(--space-6)',
             paddingTop: 'var(--space-6)',
             borderTop: '1px solid var(--border-color)',
           }}
         >
-          {/* Active Ingests */}
           <div>
-            <span
-              style={{
-                fontSize: '11px',
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-              }}
-            >
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               Active Ingests
             </span>
-
-            <div
-              style={{
-                fontSize: '20px',
-                fontWeight: 700,
-                color: 'var(--text-primary)',
-                marginTop: '2px',
-              }}
-            >
+            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
               {activeIssues.length}
             </div>
           </div>
 
-          {/* Critical Bugs */}
           <div>
-            <span
-              style={{
-                fontSize: '11px',
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-              }}
-            >
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               Critical Bugs
             </span>
-
-            <div
-              style={{
-                fontSize: '20px',
-                fontWeight: 700,
-                color: 'var(--color-ruby)',
-                marginTop: '2px',
-              }}
-            >
+            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--color-ruby)', marginTop: '2px' }}>
               {criticalIssues.length}
             </div>
           </div>
 
-          {/* Security Issues */}
           <div>
-            <span
-              style={{
-                fontSize: '11px',
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-              }}
-            >
-              Security Issues
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+              Security Findings
             </span>
-
-            <div
-              style={{
-                fontSize: '20px',
-                fontWeight: 700,
-                color: 'var(--color-indigo)',
-                marginTop: '2px',
-              }}
-            >
+            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--color-indigo)', marginTop: '2px' }}>
               {securityIssues.length}
             </div>
           </div>
 
-          {/* Verified Fixes */}
           <div>
-            <span
-              style={{
-                fontSize: '11px',
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-              }}
-            >
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               Verified Fixes
             </span>
-
-            <div
-              style={{
-                fontSize: '20px',
-                fontWeight: 700,
-                color: 'var(--color-emerald)',
-                marginTop: '2px',
-              }}
-            >
+            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--color-emerald)', marginTop: '2px' }}>
               {verifiedFixes.length}
-            </div>
-          </div>
-
-          {/* Tracked Releases */}
-          <div>
-            <span
-              style={{
-                fontSize: '11px',
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-              }}
-            >
-              Tracked Releases
-            </span>
-
-            <div
-              style={{
-                fontSize: '20px',
-                fontWeight: 700,
-                color: 'var(--color-cyan)',
-                marginTop: '2px',
-              }}
-            >
-              {project.activeReleases.length}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content Grid */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '7fr 3fr',
+          gridTemplateColumns: 'minmax(0, 3fr) minmax(280px, 2fr)',
           gap: 'var(--space-6)',
         }}
       >
-        {/* LEFT COLUMN */}
+        {/* LEFT COLUMN: Issues Table */}
         <div className="nexus-card">
           <div className="card-header">
             <div className="card-title">
-              <BarChart2
-                size={16}
-                style={{
-                  color: 'var(--color-cyan)',
-                }}
-              />
-              Project Component Ingests
+              <Compass size={16} style={{ color: 'var(--color-cyan)' }} />
+              Project Bug Ledger
             </div>
+
+            <Link
+              to="/issues/create"
+              className="btn btn-primary"
+              style={{ padding: '4px 8px', fontSize: '11px' }}
+            >
+              <PlusCircle size={12} />
+              Log New Bug
+            </Link>
           </div>
 
-          <div className="nexus-table-wrapper">
+          <div className="nexus-table-wrapper" style={{ overflowX: 'auto' }}>
             <table className="nexus-table">
               <thead>
                 <tr>
                   <th>Bug ID</th>
-                  <th>Title</th>
+                  <th>Vulnerability Title</th>
                   <th>Component</th>
                   <th>Severity</th>
                   <th>Priority</th>
@@ -400,73 +378,48 @@ export default function ProjectOverviewPage() {
                       colSpan={6}
                       style={{
                         textAlign: 'center',
-                        padding: 'var(--space-6)',
+                        padding: 'var(--space-8)',
                         color: 'var(--text-muted)',
-                        fontSize: '12px',
                       }}
                     >
-                      No component ingests recorded for this project.
+                      No issues registered for this project.
                     </td>
                   </tr>
                 ) : (
                   projectIssues.map((issue) => (
                     <tr
                       key={issue.id}
-                      style={{
-                        cursor: 'pointer',
-                      }}
-                      onClick={() =>
-                        navigate(`/issues/${issue.id}`)
-                      }
+                      onClick={() => navigate(`/issues/${encodeURIComponent(issue.id)}`)}
+                      style={{ cursor: 'pointer' }}
                     >
-                      {/* Bug ID */}
                       <td
                         style={{
                           fontFamily: 'var(--font-mono)',
                           fontWeight: 600,
                           fontSize: '12px',
-                          color: 'var(--color-cyan)',
+                          color: issue.severity === 'CRITICAL' ? 'var(--color-ruby)' : 'var(--color-cyan)',
                         }}
                       >
                         {issue.id}
                       </td>
 
-                      {/* Title */}
                       <td>
-                        <div
-                          style={{
-                            fontWeight: 500,
-                            color: 'var(--text-primary)',
-                          }}
-                        >
+                        <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
                           {issue.title}
                         </div>
-
-                        <div
-                          style={{
-                            fontSize: '10px',
-                            color: 'var(--text-muted)',
-                            marginTop: '2px',
-                          }}
-                        >
-                          Env: {issue.environment}
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          Env: {issue.environment || 'production'}
                         </div>
                       </td>
 
-                      {/* Component */}
                       <td>
-                        <span className="badge badge-slate">
-                          {issue.component}
-                        </span>
+                        <span className="badge badge-slate">{issue.component || 'core'}</span>
                       </td>
 
-                      {/* Severity */}
                       <td>
                         <span
                           className={`badge ${
-                            issue.severity === 'CRITICAL'
-                              ? 'badge-ruby'
-                              : issue.severity === 'HIGH'
+                            issue.severity === 'CRITICAL' || issue.severity === 'HIGH'
                               ? 'badge-ruby'
                               : issue.severity === 'MEDIUM'
                               ? 'badge-amber'
@@ -477,17 +430,10 @@ export default function ProjectOverviewPage() {
                         </span>
                       </td>
 
-                      {/* Priority */}
-                      <td
-                        style={{
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: '12px',
-                        }}
-                      >
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
                         {issue.priority}
                       </td>
 
-                      {/* Status */}
                       <td>
                         <span
                           className={`badge ${
@@ -511,104 +457,58 @@ export default function ProjectOverviewPage() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-6)',
-          }}
-        >
-          {/* Releases */}
+        {/* RIGHT COLUMN: Side Panels */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+          {/* Target Releases */}
           <div className="nexus-card">
             <div className="card-header">
               <div className="card-title">
-                <Calendar
-                  size={16}
-                  style={{
-                    color: 'var(--color-cyan)',
-                  }}
-                />
+                <Calendar size={16} style={{ color: 'var(--color-cyan)' }} />
                 Target Releases
               </div>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 'var(--space-2)',
-              }}
-            >
-              {project.activeReleases.length === 0 ? (
-                <div
-                  style={{
-                    padding: 'var(--space-3)',
-                    textAlign: 'center',
-                    color: 'var(--text-muted)',
-                    fontSize: '11px',
-                  }}
-                >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              {projectReleases.length === 0 ? (
+                <div style={{ padding: 'var(--space-3)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '11px' }}>
                   No active releases tracked.
                 </div>
               ) : (
-                project.activeReleases.map((version) => {
-                  /*
-                   * Demo risk classification.
-                   * v2.4.0 is currently treated as the critical release.
-                   */
-                  const isCriticalRelease = version === 'v2.4.0';
-
-                  return (
-                    <div
-                      key={version}
-                      style={{
-                        padding: 'var(--space-3)',
-                        backgroundColor: 'var(--bg-tertiary)',
-                        borderRadius: 'var(--border-radius-md)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 'var(--space-3)',
-                      }}
-                    >
-                      <div>
-                        <div
-                          style={{
-                            fontWeight: 600,
-                            fontSize: '13px',
-                          }}
-                        >
-                          {version}
-                        </div>
-
-                        <div
-                          style={{
-                            fontSize: '10px',
-                            color: 'var(--text-muted)',
-                            marginTop: '2px',
-                          }}
-                        >
-                          {isCriticalRelease
-                            ? 'Critical security audit pending'
-                            : 'Patch release verified'}
-                        </div>
+                projectReleases.map((rel) => (
+                  <div
+                    key={rel.id}
+                    style={{
+                      padding: 'var(--space-3)',
+                      backgroundColor: 'var(--bg-tertiary)',
+                      borderRadius: 'var(--border-radius-md)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 'var(--space-3)',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13px' }}>
+                        {rel.name} (v{rel.version})
                       </div>
-
-                      <span
-                        className={`badge ${
-                          isCriticalRelease
-                            ? 'badge-ruby'
-                            : 'badge-emerald'
-                        }`}
-                      >
-                        {isCriticalRelease
-                          ? 'CRITICAL RISK'
-                          : 'LOW RISK'}
-                      </span>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Target: {rel.targetDate || 'Unscheduled'}
+                      </div>
                     </div>
-                  );
-                })
+
+                    <span
+                      className={`badge ${
+                        rel.status === 'IN_PROGRESS'
+                          ? 'badge-amber'
+                          : rel.status === 'RELEASED'
+                          ? 'badge-emerald'
+                          : 'badge-slate'
+                      }`}
+                    >
+                      {rel.status}
+                    </span>
+                  </div>
+                ))
               )}
             </div>
           </div>
@@ -617,46 +517,19 @@ export default function ProjectOverviewPage() {
           <div className="nexus-card">
             <div className="card-header">
               <div className="card-title">
-                <Users
-                  size={16}
-                  style={{
-                    color: 'var(--color-cyan)',
-                  }}
-                />
+                <Users size={16} style={{ color: 'var(--color-cyan)' }} />
                 Security & Dev Operators
               </div>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 'var(--space-3)',
-              }}
-            >
-              {project.members.length === 0 ? (
-                <div
-                  style={{
-                    textAlign: 'center',
-                    padding: 'var(--space-3)',
-                    color: 'var(--text-muted)',
-                    fontSize: '11px',
-                  }}
-                >
-                  No project members assigned.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              {membersList.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 'var(--space-3)', color: 'var(--text-muted)', fontSize: '11px' }}>
+                  Project membership telemetry unavailable.
                 </div>
               ) : (
-                project.members.map((member) => (
-                  <div
-                    key={member.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 'var(--space-2)',
-                      fontSize: '12px',
-                    }}
-                  >
-                    {/* Avatar */}
+                membersList.map((member) => (
+                  <div key={member.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: '12px' }}>
                     <div
                       style={{
                         width: '24px',
@@ -673,38 +546,11 @@ export default function ProjectOverviewPage() {
                         flexShrink: 0,
                       }}
                     >
-                      {member.name
-                        .split(' ')
-                        .filter(Boolean)
-                        .map((name) => name[0])
-                        .join('')
-                        .toUpperCase()}
+                      {member.name.slice(0, 2).toUpperCase()}
                     </div>
-
-                    {/* Member details */}
-                    <div
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontWeight: 600,
-                          color: 'var(--text-primary)',
-                        }}
-                      >
-                        {member.name}
-                      </div>
-
-                      <div
-                        style={{
-                          fontSize: '10px',
-                          color: 'var(--text-muted)',
-                        }}
-                      >
-                        {member.role}
-                      </div>
+                    <div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{member.name}</div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{member.role}</div>
                     </div>
                   </div>
                 ))
@@ -716,12 +562,7 @@ export default function ProjectOverviewPage() {
           <div className="nexus-card">
             <div className="card-header">
               <div className="card-title">
-                <History
-                  size={16}
-                  style={{
-                    color: 'var(--color-cyan)',
-                  }}
-                />
+                <History size={16} style={{ color: 'var(--color-cyan)' }} />
                 Operator Event Log
               </div>
             </div>
@@ -737,24 +578,17 @@ export default function ProjectOverviewPage() {
                 fontFamily: 'var(--font-mono)',
               }}
             >
-              {project.recentActivity.length === 0 ? (
-                <div
-                  style={{
-                    padding: 'var(--space-3)',
-                    textAlign: 'center',
-                    color: 'var(--text-muted)',
-                  }}
-                >
-                  No recent operator events.
+              {activityList.length === 0 ? (
+                <div style={{ padding: 'var(--space-3)', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  No recent operator events recorded.
                 </div>
               ) : (
-                project.recentActivity.map((log, index) => (
+                activityList.map((log, index) => (
                   <div
                     key={`${index}-${log}`}
                     style={{
                       paddingBottom: '6px',
-                      borderBottom:
-                        '1px solid var(--border-color)',
+                      borderBottom: '1px solid var(--border-color)',
                       color: 'var(--text-secondary)',
                       lineHeight: '1.4',
                     }}

@@ -37,12 +37,15 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const res = await apiClient.post<{ data: { user: { id: string; role: string; displayName: string } } }>(
+      const res = await apiClient.post<{
+        user?: { id: string; role: string; displayName: string };
+        data?: { user?: { id: string; role: string; displayName: string } };
+      }>(
         '/auth/login',
         { username: cleanUsername, password: cleanPassword }
       );
 
-      const user = res.data.user;
+      const user = res?.user ?? res?.data?.user;
 
       localStorage.setItem(
         'nexus_current_user',

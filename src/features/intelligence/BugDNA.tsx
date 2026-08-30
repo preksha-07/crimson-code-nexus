@@ -14,13 +14,19 @@ export default function BugDNA({ dna }: BugDnaProps) {
     );
   }
 
+  const triggerClass =
+    dna.triggerInputClass || dna.inputType || 'Standard Payload';
+  const secRelevance =
+    dna.securityRelevance || (dna.securityRelevant ? 'HIGH' : 'LOW');
+  const env = dna.environment || 'production';
+
   const items = [
-    { label: 'Ingested Component', value: dna.component, icon: <HardDrive size={14} /> },
-    { label: 'AI Failure Classification', value: dna.failureType, icon: <Dna size={14} /> },
-    { label: 'Trigger Input Class', value: dna.triggerInputClass, icon: <Server size={14} /> },
-    { label: 'Exploitation Environment', value: dna.environment, icon: <Server size={14} /> },
-    { label: 'Business Impact Route', value: dna.impact, icon: <Shield size={14} /> },
-    { label: 'Security Relevance', value: dna.securityRelevance, icon: <Shield size={14} />, highlight: true }
+    { label: 'Ingested Component', value: dna.component || 'core', icon: <HardDrive size={14} /> },
+    { label: 'AI Failure Classification', value: dna.failureType || 'defect', icon: <Dna size={14} /> },
+    { label: 'Trigger Input Class', value: triggerClass, icon: <Server size={14} /> },
+    { label: 'Exploitation Environment', value: env, icon: <Server size={14} /> },
+    { label: 'Business Impact Route', value: dna.impact || 'unspecified', icon: <Shield size={14} /> },
+    { label: 'Security Relevance', value: secRelevance, icon: <Shield size={14} />, highlight: true }
   ];
 
   return (

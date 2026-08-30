@@ -3,20 +3,25 @@ import type { Severity, Priority } from './issue';
 export interface BugDNA {
   component: string;
   failureType: string;
-  triggerInputClass: string;
-  environment: string;
+  inputType?: string;
+  triggerInputClass?: string;
+  environment?: string | null;
   impact: string;
-  securityRelevance: 'HIGH' | 'MEDIUM' | 'LOW';
+  securityRelevant?: boolean;
+  securityRelevance?: 'HIGH' | 'MEDIUM' | 'LOW' | string;
 }
 
 export interface AITriage {
   category: string;
   suggestedSeverity: Severity;
   suggestedPriority: Priority;
-  securityFlag: boolean;
-  suggestedOwner: string;
+  securityFlag?: boolean;
+  suggestedOwner?: string;
+  suggestedOwnerRole?: string;
+  riskFactor?: number;
   confidence: number;
-  reasons: string[];
+  reasoning?: string;
+  reasons?: string[];
   acceptedByHuman?: boolean;
   rejectedByHuman?: boolean;
 }
@@ -24,10 +29,14 @@ export interface AITriage {
 export interface RelatedIssue {
   issueId: string;
   title: string;
-  relationType: 'DUPLICATE' | 'RELATED';
-  similarityPercentage: number;
-  sharedSignals: string[];
-  connectionExplanation: string;
+  status?: string;
+  relationType?: 'DUPLICATE' | 'RELATED';
+  relationshipSignal?: string;
+  similarityPercentage?: number;
+  relevanceScore?: number;
+  sharedSignals?: string[];
+  connectionExplanation?: string;
+  reason?: string;
 }
 
 export interface CausalGraphNode {
@@ -50,19 +59,17 @@ export interface CausalGraph {
   links: CausalGraphLink[];
 }
 
-export interface CausalGraph {
-  nodes: CausalGraphNode[];
-  links: CausalGraphLink[];
-}
-
 export interface ReproductionCapsule {
-  environment: string;
-  preconditions: string[];
-  steps: string[];
-  expectedBehavior: string;
-  actualBehavior: string;
-  evidenceLogs: string;
-  missingInformation: string[];
+  environment?: string | null;
+  preconditions?: string[];
+  steps?: string[];
+  expectedBehavior?: string;
+  expectedResult?: string;
+  actualBehavior?: string;
+  actualResult?: string;
+  evidenceLogs?: string;
+  evidenceProvided?: boolean;
+  missingInformation?: string[];
 }
 
 export interface ConfidenceEvidenceItem {
@@ -73,6 +80,15 @@ export interface ConfidenceEvidenceItem {
 }
 
 export interface ResolutionConfidence {
-  score: number;
-  evidenceItems: ConfidenceEvidenceItem[];
+  score?: number;
+  confidenceScore?: number;
+  confidenceLevel?: 'LOW' | 'MEDIUM' | 'HIGH' | 'VERIFIED';
+  factors?: {
+    statusWeight?: number;
+    reproductionWeight?: number;
+    verificationState?: string;
+    evidenceWeight?: number;
+  };
+  explanation?: string;
+  evidenceItems?: ConfidenceEvidenceItem[];
 }

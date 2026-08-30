@@ -11,6 +11,7 @@ interface AIAnalysisProps {
 
 export default function AIAnalysis({ triage, issueId, onUpdate }: AIAnalysisProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   if (!triage) {
     return (
@@ -21,18 +22,44 @@ export default function AIAnalysis({ triage, issueId, onUpdate }: AIAnalysisProp
   }
 
   const handleAccept = async () => {
-    setIsSubmitting(true);
-    await acceptAiTriage(issueId);
-    onUpdate();
-    setIsSubmitting(false);
+    try {
+      setIsSubmitting(true);
+      setActionError(null);
+      await acceptAiTriage(issueId);
+      onUpdate();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Triage action is unsupported on the backend.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReject = async () => {
-    setIsSubmitting(true);
-    await rejectAiTriage(issueId);
-    onUpdate();
-    setIsSubmitting(false);
+    try {
+      setIsSubmitting(true);
+      setActionError(null);
+      await rejectAiTriage(issueId);
+      onUpdate();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Triage action is unsupported on the backend.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const confidencePct = Math.round(
+    triage.confidence <= 1 ? triage.confidence * 100 : triage.confidence
+  );
+
+  const suggestedLead =
+    triage.suggestedOwner || triage.suggestedOwnerRole || 'DEVELOPER';
+
+  const reasonsList =
+    Array.isArray(triage.reasons) && triage.reasons.length > 0
+      ? triage.reasons
+      : triage.reasoning
+      ? [triage.reasoning]
+      : [];
 
   return (
     <div className="nexus-card" style={{ borderLeft: '3px solid var(--color-indigo)' }}>
@@ -42,7 +69,7 @@ export default function AIAnalysis({ triage, issueId, onUpdate }: AIAnalysisProp
           Explainable AI Triage Advisory
         </div>
         <span className="badge badge-indigo" style={{ display: 'flex', gap: '4px' }}>
-          <Cpu size={10} /> Confidence: {triage.confidence}%
+          <Cpu size={10} /> Confidence: {confidencePct}%
         </span>
       </div>
 
@@ -63,6 +90,21 @@ export default function AIAnalysis({ triage, issueId, onUpdate }: AIAnalysisProp
         </span>
       </div>
 
+      {actionError && (
+        <div style={{
+          backgroundColor: 'rgba(244, 63, 94, 0.08)',
+          border: '1px solid rgba(244, 63, 94, 0.2)',
+          borderRadius: 'var(--border-radius-md)',
+          padding: 'var(--space-2) var(--space-3)',
+          marginBottom: 'var(--space-4)',
+          color: 'var(--text-primary)',
+          fontSize: '11px'
+        }}>
+          <AlertCircle size={14} style={{ color: 'var(--color-ruby)', verticalAlign: 'middle', marginRight: '6px' }} />
+          {actionError}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
         {/* Suggested Fields */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
@@ -82,7 +124,7 @@ export default function AIAnalysis({ triage, issueId, onUpdate }: AIAnalysisProp
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Suggested Lead:</span>
-              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{triage.suggestedOwner}</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{suggestedLead}</span>
             </div>
           </div>
         </div>
@@ -90,11 +132,17 @@ export default function AIAnalysis({ triage, issueId, onUpdate }: AIAnalysisProp
         {/* Reasoning and Evidence */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Causal Reasoning logs:</div>
-          <ul style={{ paddingLeft: 'var(--space-4)', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {triage.reasons.map((reason, idx) => (
-              <li key={idx} style={{ lineHeight: '1.4' }}>{reason}</li>
-            ))}
-          </ul>
+          {reasonsList.length === 0 ? (
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              No causal reasoning logs recorded.
+            </div>
+          ) : (
+            <ul style={{ paddingLeft: 'var(--space-4)', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {reasonsList.map((reason, idx) => (
+                <li key={idx} style={{ lineHeight: '1.4' }}>{reason}</li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 

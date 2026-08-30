@@ -17,8 +17,11 @@ export interface Project {
   id: string;
   name: string;
   description: string;
-  statistics: ProjectStats;
-  activeReleases: string[];
-  recentActivity: string[];
-  members: ProjectMember[];
+  key?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  statistics?: ProjectStats;
+  activeReleases?: string[];
+  recentActivity?: string[];
+  members?: ProjectMember[];
 }

@@ -1,5 +1,6 @@
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type Priority = 'P1' | 'P2' | 'P3' | 'P4';
+export type Priority = 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
+export type IssueType = 'BUG' | 'TASK' | 'IMPROVEMENT' | 'SECURITY';
 export type IssueVisibility = 'PUBLIC' | 'RESTRICTED' | 'CONFIDENTIAL';
 
 export type IssueStatus =
@@ -35,6 +36,7 @@ export interface Attachment {
 
 export interface Issue {
   id: string;
+  projectId?: string;
   title: string;
   description: string;
   component: string;

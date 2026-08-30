@@ -6,16 +6,32 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
+interface SessionResponse {
+  user?: {
+    id: string;
+    role: string;
+    displayName: string;
+  } | null;
+  data?: {
+    user?: {
+      id: string;
+      role: string;
+      displayName: string;
+    } | null;
+  };
+}
+
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
     let active = true;
-    apiClient.get<{ data: { user: unknown } }>('/auth/me')
+    apiClient.get<SessionResponse>('/auth/me')
       .then(res => {
         if (!active) return;
-        if (res.data && res.data.user) {
+        const user = res?.user ?? res?.data?.user;
+        if (user) {
           setAuthenticated(true);
         } else {
           setAuthenticated(false);

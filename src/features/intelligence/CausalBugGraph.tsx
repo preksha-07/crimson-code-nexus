@@ -11,8 +11,29 @@ export default function CausalBugGraph({ graph }: CausalBugGraphProps) {
 
   if (!graph) {
     return (
-      <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-muted)' }}>
-        No causal graph structure mapped.
+      <div className="nexus-card" style={{ borderLeft: '3px solid var(--border-color)' }}>
+        <div className="card-header">
+          <div className="card-title">
+            <Network size={16} style={{ color: 'var(--text-muted)' }} />
+            Causal Relationship &amp; Dependency Map
+          </div>
+        </div>
+        <div style={{
+          padding: 'var(--space-6)',
+          textAlign: 'center',
+          color: 'var(--text-muted)',
+          fontSize: '12px',
+          lineHeight: '1.6'
+        }}>
+          <Network size={28} style={{ marginBottom: 'var(--space-2)', opacity: 0.3 }} />
+          <div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>
+            Causal Graph Unavailable
+          </div>
+          <div>
+            Backend endpoint not implemented.
+            The causal relationship graph is not available for this issue.
+          </div>
+        </div>
       </div>
     );
   }

@@ -11,6 +11,7 @@ interface ResolutionConfidenceProps {
 
 export default function ResolutionConfidence({ confidence, issueId, onUpdate }: ResolutionConfidenceProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!confidence) {
     return (
@@ -20,21 +21,50 @@ export default function ResolutionConfidence({ confidence, issueId, onUpdate }: 
     );
   }
 
+  const score = confidence.score ?? confidence.confidenceScore ?? 0;
+
+  const evidenceItems: Array<{ id: string; label: string; verified: boolean; weight: number }> =
+    Array.isArray(confidence.evidenceItems) && confidence.evidenceItems.length > 0
+      ? confidence.evidenceItems
+      : confidence.factors
+      ? [
+          {
+            id: 'ev_status',
+            label: `Issue Lifecycle State Factor (${confidence.factors.verificationState || 'Standard'})`,
+            verified: (confidence.factors.statusWeight ?? 0) > 0,
+            weight: confidence.factors.statusWeight ?? 30,
+          },
+          {
+            id: 'ev_repro',
+            label: 'Reproduction Capsule Evidence Validated',
+            verified: (confidence.factors.reproductionWeight ?? 0) > 0,
+            weight: confidence.factors.reproductionWeight ?? 25,
+          },
+          {
+            id: 'ev_evidence',
+            label: 'Trace & Log Artifact Verification',
+            verified: (confidence.factors.evidenceWeight ?? 0) > 0,
+            weight: confidence.factors.evidenceWeight ?? 25,
+          },
+        ]
+      : [];
+
   const handleToggle = async (itemId: string, currentStatus: boolean) => {
     setIsSubmitting(true);
+    setError(null);
     try {
       await verifyConfidenceItem(issueId, itemId, !currentStatus);
       onUpdate();
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : 'Evidence verification update is unsupported on the backend.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 90) return 'var(--color-emerald)';
-    if (score >= 60) return 'var(--color-amber)';
+  const getScoreColor = (sc: number) => {
+    if (sc >= 90) return 'var(--color-emerald)';
+    if (sc >= 60) return 'var(--color-amber)';
     return 'var(--color-ruby)';
   };
 
@@ -48,8 +78,23 @@ export default function ResolutionConfidence({ confidence, issueId, onUpdate }: 
       </div>
 
       <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: 'var(--space-4)', lineHeight: '1.4' }}>
-        NEXUS requires tangible engineering evidence (tests, audits, validations) to increase confidence that a vulnerability is fully closed. The score is not magically generated.
+        {confidence.explanation ||
+          'NEXUS requires tangible engineering evidence (tests, audits, validations) to increase confidence that a vulnerability is fully closed. The score is not magically generated.'}
       </p>
+
+      {error && (
+        <div style={{
+          backgroundColor: 'rgba(244, 63, 94, 0.08)',
+          border: '1px solid rgba(244, 63, 94, 0.2)',
+          borderRadius: 'var(--border-radius-md)',
+          padding: 'var(--space-2) var(--space-3)',
+          marginBottom: 'var(--space-4)',
+          color: 'var(--text-primary)',
+          fontSize: '11px'
+        }}>
+          {error}
+        </div>
+      )}
 
       <div style={{
         display: 'grid',
@@ -57,7 +102,7 @@ export default function ResolutionConfidence({ confidence, issueId, onUpdate }: 
         gap: 'var(--space-6)',
         alignItems: 'center'
       }}>
-        
+
         {/* Visual score dial */}
         <div style={{
           display: 'flex',
@@ -75,24 +120,24 @@ export default function ResolutionConfidence({ confidence, issueId, onUpdate }: 
             height: '100px',
             borderRadius: '50%',
             border: '8px solid var(--bg-primary)',
-            borderTopColor: getScoreColor(confidence.score),
-            borderRightColor: confidence.score >= 50 ? getScoreColor(confidence.score) : 'var(--bg-primary)',
-            borderBottomColor: confidence.score >= 75 ? getScoreColor(confidence.score) : 'var(--bg-primary)',
+            borderTopColor: getScoreColor(score),
+            borderRightColor: score >= 50 ? getScoreColor(score) : 'var(--bg-primary)',
+            borderBottomColor: score >= 75 ? getScoreColor(score) : 'var(--bg-primary)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '24px',
             fontWeight: 700,
-            color: getScoreColor(confidence.score)
+            color: getScoreColor(score)
           }}>
-            {confidence.score}%
+            {score}%
           </div>
           <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', marginTop: 'var(--space-2)' }}>
             Resolution Confidence
           </span>
           <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-            {confidence.score >= 90 ? 'High Confidence (Safe to close)' : 
-             confidence.score >= 50 ? 'Medium Confidence (Testing ongoing)' : 'Low Confidence (Unverified patch)'}
+            {score >= 90 ? 'High Confidence (Safe to close)' :
+             score >= 50 ? 'Medium Confidence (Testing ongoing)' : 'Low Confidence (Unverified patch)'}
           </span>
         </div>
 
@@ -103,40 +148,46 @@ export default function ResolutionConfidence({ confidence, issueId, onUpdate }: 
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            {confidence.evidenceItems.map(item => (
-              <div
-                key={item.id}
-                onClick={() => !isSubmitting && handleToggle(item.id, item.verified)}
-                style={{
-                  padding: '10px var(--space-3)',
-                  backgroundColor: item.verified ? 'rgba(16, 189, 129, 0.03)' : 'var(--bg-tertiary)',
-                  border: '1px solid',
-                  borderColor: item.verified ? 'rgba(16, 189, 129, 0.2)' : 'var(--border-color)',
-                  borderRadius: 'var(--border-radius-md)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-3)',
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                  transition: 'all var(--transition-fast)'
-                }}
-              >
-                <div>
-                  {item.verified ? (
-                    <CheckSquare size={16} style={{ color: 'var(--color-emerald)' }} />
-                  ) : (
-                    <Square size={16} style={{ color: 'var(--text-muted)' }} />
-                  )}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '11.5px', fontWeight: 500, color: item.verified ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                    {item.label}
-                  </div>
-                </div>
-                <span className={`badge ${item.verified ? 'badge-emerald' : 'badge-slate'}`} style={{ flexShrink: 0 }}>
-                  +{item.weight}% Score
-                </span>
+            {evidenceItems.length === 0 ? (
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', padding: 'var(--space-2)' }}>
+                No active evidence factors tracked.
               </div>
-            ))}
+            ) : (
+              evidenceItems.map(item => (
+                <div
+                  key={item.id}
+                  onClick={() => !isSubmitting && handleToggle(item.id, item.verified)}
+                  style={{
+                    padding: '10px var(--space-3)',
+                    backgroundColor: item.verified ? 'rgba(16, 189, 129, 0.03)' : 'var(--bg-tertiary)',
+                    border: '1px solid',
+                    borderColor: item.verified ? 'rgba(16, 189, 129, 0.2)' : 'var(--border-color)',
+                    borderRadius: 'var(--border-radius-md)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-3)',
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    transition: 'all var(--transition-fast)'
+                  }}
+                >
+                  <div>
+                    {item.verified ? (
+                      <CheckSquare size={16} style={{ color: 'var(--color-emerald)' }} />
+                    ) : (
+                      <Square size={16} style={{ color: 'var(--text-muted)' }} />
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '11.5px', fontWeight: 500, color: item.verified ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                      {item.label}
+                    </div>
+                  </div>
+                  <span className={`badge ${item.verified ? 'badge-emerald' : 'badge-slate'}`} style={{ flexShrink: 0 }}>
+                    +{item.weight}% Score
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

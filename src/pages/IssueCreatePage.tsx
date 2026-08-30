@@ -8,13 +8,17 @@ import {
 } from 'lucide-react';
 
 import { createIssue } from '../lib/api/issues';
+import { getProjects } from '../lib/api/projects';
 import { runSecretSentinelScanner } from '../lib/api/security';
 
 import type {
   Severity,
   Priority,
+  IssueType,
   IssueVisibility,
 } from '../types/issue';
+
+import type { Project } from '../types/project';
 
 import type {
   SecretSentinelWarning,
@@ -22,6 +26,10 @@ import type {
 
 export default function IssueCreatePage() {
   const navigate = useNavigate();
+
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectId, setProjectId] = useState<string>('proj_01');
+  const [issueType, setIssueType] = useState<IssueType>('BUG');
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -51,6 +59,28 @@ export default function IssueCreatePage() {
 
   const [error, setError] =
     useState<string | null>(null);
+
+  /*
+   * Fetch available projects from backend on mount
+   */
+  useEffect(() => {
+    let mounted = true;
+    getProjects()
+      .then((projs) => {
+        if (!mounted || !projs.length) return;
+        setProjects(projs);
+        const primary = projs.find((p) => p.id === 'proj_01') || projs[0];
+        if (primary) {
+          setProjectId(primary.id);
+        }
+      })
+      .catch(() => {
+        // Fall back gracefully to proj_01
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   /*
    * Secret Sentinel state
@@ -145,12 +175,14 @@ export default function IssueCreatePage() {
         : description;
 
       const created = await createIssue({
+        projectId,
         title: title.trim(),
         description: finalDescription,
         component,
         environment: environment.trim(),
         severity,
         priority,
+        issueType,
         version: version.trim(),
         visibility,
       });
@@ -251,6 +283,81 @@ export default function IssueCreatePage() {
             onSubmit={handleSubmit}
             id="nexus-ingest-form"
           >
+            {/* Target Project & Issue Classification */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 'var(--space-4)',
+                marginBottom: 'var(--space-3)',
+              }}
+            >
+              <div className="form-group">
+                <label
+                  className="form-label"
+                  htmlFor="issue-project"
+                >
+                  Target Project
+                </label>
+
+                <select
+                  id="issue-project"
+                  className="input-field"
+                  value={projectId}
+                  onChange={(e) =>
+                    setProjectId(e.target.value)
+                  }
+                  disabled={isSubmitting}
+                >
+                  {projects.length > 0 ? (
+                    projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.key || p.id})
+                      </option>
+                    ))
+                  ) : (
+                    <option value="proj_01">
+                      NEXUS Core (NEX)
+                    </option>
+                  )}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label
+                  className="form-label"
+                  htmlFor="issue-type"
+                >
+                  Issue Classification
+                </label>
+
+                <select
+                  id="issue-type"
+                  className="input-field"
+                  value={issueType}
+                  onChange={(e) =>
+                    setIssueType(
+                      e.target.value as IssueType
+                    )
+                  }
+                  disabled={isSubmitting}
+                >
+                  <option value="BUG">
+                    BUG (Security &amp; Defect)
+                  </option>
+                  <option value="SECURITY">
+                    SECURITY (Vulnerability Report)
+                  </option>
+                  <option value="TASK">
+                    TASK (Engineering Assignment)
+                  </option>
+                  <option value="IMPROVEMENT">
+                    IMPROVEMENT (Enhancement)
+                  </option>
+                </select>
+              </div>
+            </div>
+
             {/* Title */}
             <div className="form-group">
               <label

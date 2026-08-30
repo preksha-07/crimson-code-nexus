@@ -17,6 +17,9 @@ import {
   getIssueById,
   addComment,
   updateIssueStatus,
+  getComments,
+  getAttachments,
+  getDependencies,
 } from '../lib/api/issues';
 
 import {
@@ -152,13 +155,22 @@ export default function IssueWorkspacePage() {
     try {
       setError(null);
 
-      const item = await getIssueById(issueId);
+      const [item, comments, attachments, dependencies] = await Promise.all([
+        getIssueById(issueId),
+        getComments(issueId),
+        getAttachments(issueId),
+        getDependencies(issueId),
+      ]);
 
       if (!item) {
         setIssue(null);
         setIsLoading(false);
         return;
       }
+
+      item.comments = comments;
+      item.attachments = attachments;
+      item.dependencies = dependencies;
 
       setIssue(item);
 

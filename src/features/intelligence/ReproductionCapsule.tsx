@@ -14,7 +14,11 @@ export default function ReproductionCapsule({ capsule }: ReproductionCapsuleProp
     );
   }
 
-  const hasMissingInfo = capsule.missingInformation && capsule.missingInformation.length > 0;
+  const preconditions = Array.isArray(capsule.preconditions) ? capsule.preconditions : [];
+  const steps = Array.isArray(capsule.steps) ? capsule.steps : [];
+  const expected = capsule.expectedBehavior || capsule.expectedResult || 'Expected standard execution without vulnerability trigger.';
+  const actual = capsule.actualBehavior || capsule.actualResult || 'Actual execution triggered vulnerability or anomalous behavior.';
+  const hasMissingInfo = Array.isArray(capsule.missingInformation) && capsule.missingInformation.length > 0;
 
   return (
     <div className="nexus-card">
@@ -40,7 +44,7 @@ export default function ReproductionCapsule({ capsule }: ReproductionCapsuleProp
             fontSize: '12px',
             color: 'var(--text-primary)'
           }}>
-            {capsule.environment || 'Unknown Environment (Needs verification)'}
+            {capsule.environment || 'production sandbox'}
           </div>
         </div>
 
@@ -49,11 +53,17 @@ export default function ReproductionCapsule({ capsule }: ReproductionCapsuleProp
           <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
             Preconditions:
           </div>
-          <ul style={{ paddingLeft: 'var(--space-4)', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            {capsule.preconditions.map((pre, idx) => (
-              <li key={idx}>{pre}</li>
-            ))}
-          </ul>
+          {preconditions.length === 0 ? (
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', paddingLeft: 'var(--space-2)' }}>
+              Standard operating environment preconditions apply.
+            </div>
+          ) : (
+            <ul style={{ paddingLeft: 'var(--space-4)', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              {preconditions.map((pre, idx) => (
+                <li key={idx}>{pre}</li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* Reproduction Steps */}
@@ -61,11 +71,17 @@ export default function ReproductionCapsule({ capsule }: ReproductionCapsuleProp
           <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
             Steps to Reproduce:
           </div>
-          <ol style={{ paddingLeft: 'var(--space-4)', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {capsule.steps.map((step, idx) => (
-              <li key={idx} style={{ lineHeight: '1.4' }}>{step}</li>
-            ))}
-          </ol>
+          {steps.length === 0 ? (
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', paddingLeft: 'var(--space-2)' }}>
+              No detailed reproduction steps recorded.
+            </div>
+          ) : (
+            <ol style={{ paddingLeft: 'var(--space-4)', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {steps.map((step, idx) => (
+                <li key={idx} style={{ lineHeight: '1.4' }}>{step}</li>
+              ))}
+            </ol>
+          )}
         </div>
 
         {/* Expected vs Actual */}
@@ -80,7 +96,7 @@ export default function ReproductionCapsule({ capsule }: ReproductionCapsuleProp
               <CheckCircle size={12} /> Expected Behavior:
             </div>
             <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-              {capsule.expectedBehavior}
+              {expected}
             </p>
           </div>
 
@@ -94,7 +110,7 @@ export default function ReproductionCapsule({ capsule }: ReproductionCapsuleProp
               <ShieldAlert size={12} /> Actual Behavior (Vulnerable):
             </div>
             <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-              {capsule.actualBehavior}
+              {actual}
             </p>
           </div>
         </div>

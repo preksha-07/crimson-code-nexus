@@ -14,6 +14,8 @@ import { intelligenceRouter } from './intelligence/routes.js';
 import { authenticateSession } from './security/auth/middleware.js';
 import { authRouter } from './security/auth/routes.js';
 import { requireCsrf } from './security/auth/csrf.js';
+import { securityRouter } from './security/routes.js';
+
 export const app = express();
 
 app.use(helmet());
@@ -40,6 +42,7 @@ app.use('/api', dependencyRouter);
 app.use('/api', attachmentRouter);
 app.use('/api/releases', releaseRouter);
 app.use('/api', intelligenceRouter);
+app.use('/api', securityRouter);
 
 app.use(notFound);
 app.use(errorHandler);
