@@ -40,12 +40,17 @@ export default function LoginPage() {
       const res = await apiClient.post<{
         user?: { id: string; role: string; displayName: string };
         data?: { user?: { id: string; role: string; displayName: string } };
+        csrfToken?: string;
       }>(
         '/auth/login',
         { username: cleanUsername, password: cleanPassword }
       );
 
       const user = res?.user ?? res?.data?.user;
+
+      if (!user) {
+        throw new Error('Authentication succeeded but user profile was not returned.');
+      }
 
       localStorage.setItem(
         'nexus_current_user',
@@ -197,7 +202,7 @@ export default function LoginPage() {
                     color: 'var(--color-cyan)',
                   }}
                 >
-                  sarah
+                  dev@nexus.local
                 </code>{' '}
                 or{' '}
                 <code
@@ -205,7 +210,16 @@ export default function LoginPage() {
                     color: 'var(--color-cyan)',
                   }}
                 >
-                  sconnor
+                  aarav@nexus.local
+                </code>
+                <br />
+                Password:{' '}
+                <code
+                  style={{
+                    color: 'var(--color-cyan)',
+                  }}
+                >
+                  Password123!
                 </code>
               </div>
             </div>

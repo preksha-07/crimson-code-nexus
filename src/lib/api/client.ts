@@ -1,5 +1,28 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? '/api';
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api';
+const API_BASE_URL = rawBaseUrl.replace(/\/+$/, '');
+
+let inMemoryCsrfToken: string | null = null;
+
+export function setCsrfToken(token: string | null): void {
+  inMemoryCsrfToken = token;
+}
+
+export function getCsrfToken(): string | undefined {
+  if (inMemoryCsrfToken) {
+    return inMemoryCsrfToken;
+  }
+  try {
+    const match = document.cookie
+      .split('; ')
+      .find((cookie) => cookie.startsWith('nexus_csrf='));
+    if (match) {
+      return match.split('=').slice(1).join('=');
+    }
+  } catch {
+    // Ignore environments where document.cookie is inaccessible
+  }
+  return undefined;
+}
 
 export interface ApiError {
   message: string;
@@ -129,24 +152,23 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<T> {
   try {
-    const csrfToken = document.cookie
-    .split('; ')
-    .find((cookie) => cookie.startsWith('nexus_csrf='))
-    ?.split('=')
-    .slice(1)
-    .join('=');
+    const csrfToken = getCsrfToken();
+    const cleanEndpoint = endpoint.startsWith('/')
+      ? endpoint
+      : `/${endpoint}`;
+
     const response = await fetch(
-      `${API_BASE_URL}${endpoint}`,
+      `${API_BASE_URL}${cleanEndpoint}`,
       {
         ...options,
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...(csrfToken
-          ? { 'X-CSRF-Token': csrfToken }
-          : {}),
+            ? { 'X-CSRF-Token': csrfToken }
+            : {}),
           ...options.headers,
-      },
+        },
       }
     );
 
@@ -185,8 +207,26 @@ async function request<T>(
       );
     }
 
+    if (
+      data &&
+      typeof data === 'object' &&
+      'csrfToken' in data &&
+      typeof (data as { csrfToken: unknown }).csrfToken === 'string'
+    ) {
+      setCsrfToken((data as { csrfToken: string }).csrfToken);
+    }
+
     if (data && typeof data === 'object' && 'data' in data) {
-      return (data as { data: T }).data;
+      const inner = (data as { data: unknown }).data;
+      if (
+        inner &&
+        typeof inner === 'object' &&
+        'csrfToken' in inner &&
+        typeof (inner as { csrfToken: unknown }).csrfToken === 'string'
+      ) {
+        setCsrfToken((inner as { csrfToken: string }).csrfToken);
+      }
+      return inner as T;
     }
 
     return data as T;

@@ -75,9 +75,12 @@ authRouter.post('/login', loginRateLimiter, async (req, res, next) => {
     });
 
     const isProduction = process.env.NODE_ENV === 'production';
+    const sameSite = isProduction ? 'None' : 'Lax';
+    const secureFlag = isProduction ? ' Secure;' : '';
+
     res.setHeader(
       'Set-Cookie',
-      `nexus_session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400;${isProduction ? ' Secure;' : ''}`
+      `nexus_session=${sessionId}; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=86400;${secureFlag}`
     );
 
     const csrfToken = generateCsrfToken();
@@ -89,7 +92,8 @@ authRouter.post('/login', loginRateLimiter, async (req, res, next) => {
           id: user.id,
           role: user.role,
           displayName: user.display_name
-        }
+        },
+        csrfToken
       }
     });
   } catch (error) {
@@ -125,14 +129,18 @@ authRouter.post('/logout', async (req, res, next) => {
       await pool.query('DELETE FROM sessions WHERE id = $1', [sessionId]);
     }
     
+    const isProduction = process.env.NODE_ENV === 'production';
+    const sameSite = isProduction ? 'None' : 'Lax';
+    const secureFlag = isProduction ? ' Secure;' : '';
+
     res.append(
       'Set-Cookie',
-      'nexus_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0;'
+      `nexus_session=; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=0;${secureFlag}`
     );
 
     res.append(
       'Set-Cookie',
-      'nexus_csrf=; Path=/; SameSite=Lax; Max-Age=0;'
+      `nexus_csrf=; Path=/; SameSite=${sameSite}; Max-Age=0;${secureFlag}`
     );
     
     res.json({ data: { success: true } });
@@ -142,14 +150,16 @@ authRouter.post('/logout', async (req, res, next) => {
 });
 
 authRouter.get('/me', (req, res) => {
+  let csrfToken: string | undefined;
   if (req.user) {
-    const csrfToken = generateCsrfToken();
+    csrfToken = generateCsrfToken();
     setCsrfCookie(res, csrfToken);
   }
 
   res.json({
     data: {
-      user: req.user || null
+      user: req.user || null,
+      ...(csrfToken ? { csrfToken } : {})
     }
   });
 });

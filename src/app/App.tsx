@@ -4,13 +4,27 @@ import {
   LayoutDashboard,
   PlusCircle,
   ShieldAlert,
+  LogOut,
 } from 'lucide-react';
 import AppRoutes from './routes';
+import { apiClient, setCsrfToken } from '../lib/api/client';
 
 function AppLayout() {
   const location = useLocation();
 
   const isLoginPage = location.pathname === '/login';
+
+  const handleLogout = async () => {
+    try {
+      await apiClient.post('/auth/logout');
+    } catch {
+      // Proceed with local cleanup even if request fails
+    } finally {
+      setCsrfToken(null);
+      localStorage.removeItem('nexus_current_user');
+      window.location.hash = '#/login';
+    }
+  };
 
   return (
     <div
@@ -171,6 +185,23 @@ function AppLayout() {
               <ShieldAlert size={14} />
               Security
             </Link>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="btn"
+              style={{
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                marginLeft: 'var(--space-2)',
+              }}
+              title="Terminate Secure Session"
+            >
+              <LogOut size={14} />
+              Logout
+            </button>
           </nav>
         </header>
       )}

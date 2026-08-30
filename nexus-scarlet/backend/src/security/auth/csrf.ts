@@ -52,12 +52,12 @@ export function generateCsrfToken(): string {
  */
 export function setCsrfCookie(res: Response, token: string): void {
   const isProduction = process.env.NODE_ENV === 'production';
+  const sameSite = isProduction ? 'None' : 'Lax';
+  const secureFlag = isProduction ? ' Secure;' : '';
 
   res.append(
     'Set-Cookie',
-    `${CSRF_COOKIE}=${token}; Path=/; SameSite=Lax; Max-Age=86400;${
-      isProduction ? ' Secure;' : ''
-    }`
+    `${CSRF_COOKIE}=${token}; Path=/; SameSite=${sameSite}; Max-Age=86400;${secureFlag}`
   );
 }
 
