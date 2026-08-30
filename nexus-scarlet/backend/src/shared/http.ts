@@ -29,6 +29,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
       issues: err.issues
     });
   } else {
+    console.error('[INTERNAL_ERROR]', err);
     e = new HttpError(500, 'INTERNAL_ERROR', 'Unexpected server failure');
   }
 
