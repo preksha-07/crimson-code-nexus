@@ -1,32 +1,54 @@
-# React + TypeScript + Vite
+# NEXUS
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+## Evidence-Driven, Security-First Bug Intelligence Platform
 
-Currently, two official plugins are available:
+NEXUS is an engineering intelligence and bug-tracking platform that combines issue management, AI-assisted bug intelligence, relationship analysis, release-risk assessment, and security-first controls into a single system.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Instead of treating a bug tracker as a simple list of issues, NEXUS connects **evidence, relationships, intelligence, risk, and verification** throughout the software-development lifecycle.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Why NEXUS?
 
-## Expanding the Oxlint configuration
+Traditional issue trackers primarily focus on creating, assigning, and tracking issues.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+NEXUS extends this workflow with:
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+- **Bug DNA** — structured semantic fingerprints for reported defects
+- **AI Triage** — evidence-backed recommendations for issue classification and prioritization
+- **Duplicate & Related Issue Detection** — identifies potentially connected issues
+- **Causal Bug Graph** — visualizes relationships and possible shared root causes
+- **Reproduction Capsule** — structures reproduction information and evidence
+- **Release Risk Radar** — aggregates risk signals affecting releases
+- **Resolution Confidence** — supports evidence-backed verification of fixes
+- **Secret Sentinel** — detects likely secrets in project content
+- **Security-first authorization** — authentication, RBAC, object-level authorization and project isolation
+- **Audit Spine** — records sensitive security and workflow events
+- **Resilient Notifications** — asynchronous notification processing with retry and failure handling
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+---
+
+# System Architecture
+
+```text
+                         NEXUS
+                           │
+             ┌─────────────┴─────────────┐
+             │                           │
+          VIXEN                       Backend
+    React / TypeScript             Node / Express
+             │                           │
+             │                  ┌────────┼────────┐
+             │                  │        │        │
+             │               SCARLET   CIPHER   RAVEN
+             │                  │        │        │
+             │                  │     Intelligence Security
+             │                  │
+             └──────────── REST API ─────┘
+                                      │
+                                      ▼
+                                  PostgreSQL
+                                      │
+                           ┌──────────┴──────────┐
+                           │                     │
+                    Audit / Events       Notifications
