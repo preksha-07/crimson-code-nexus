@@ -2,7 +2,7 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import { pool } from '../../db/pool.js';
-import { verifyPassword } from './hash.js';
+import { verifyPassword, hashPassword } from './hash.js';
 import { HttpError } from '../../shared/http.js';
 import { recordAuditEvent } from '../../audit/service.js';
 import { generateCsrfToken, setCsrfCookie } from './csrf.js';
@@ -20,20 +20,56 @@ authRouter.post('/login', loginRateLimiter, async (req, res, next) => {
     const { username, password } = loginSchema.parse(req.body);
     
     // Support matching by ID, email, or display_name (case-insensitive)
-    const userRes = await pool.query<{ id: string; display_name: string; email: string; role: string; password_hash: string | null }>(
+    let userRes = await pool.query<{ id: string; display_name: string; email: string; role: string; password_hash: string | null }>(
       `SELECT id, display_name, email, role, password_hash
        FROM users
        WHERE LOWER(id) = LOWER($1) OR LOWER(email) = LOWER($1) OR LOWER(display_name) = LOWER($1)`,
       [username]
     );
     
+    // If user does not exist, automatically provision as a VIEWER demo account
     if (userRes.rows.length === 0) {
-      await recordAuditEvent({
-        action: 'auth.login.failure',
-        resourceType: 'auth',
-        metadata: { username, reason: 'user_not_found' }
-      });
-      throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid username or password.');
+      const cleanInput = username.trim();
+      const normalizedEmail = cleanInput.includes('@')
+        ? cleanInput.toLowerCase()
+        : `${cleanInput.toLowerCase()}@nexus.local`;
+      const localPart = normalizedEmail.split('@')[0];
+      const displayName = localPart.charAt(0).toUpperCase() + localPart.slice(1);
+      const hashId = crypto.createHash('sha256').update(normalizedEmail).digest('hex').slice(0, 12);
+      const newUserId = `usr_${hashId}`;
+
+      // Newly created demo accounts use Password123!
+      if (password !== 'Password123!') {
+        await recordAuditEvent({
+          action: 'auth.login.failure',
+          resourceType: 'auth',
+          metadata: { username, reason: 'invalid_password' }
+        });
+        throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid username or password.');
+      }
+
+      const defaultHash = await hashPassword('Password123!');
+      await pool.query(
+        `INSERT INTO users (id, display_name, email, role, password_hash)
+         VALUES ($1, $2, $3, 'VIEWER', $4)
+         ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+        [newUserId, displayName, normalizedEmail, defaultHash]
+      );
+
+      // Add user to default project proj_01
+      await pool.query(
+        `INSERT INTO project_members (project_id, user_id)
+         VALUES ('proj_01', $1)
+         ON CONFLICT DO NOTHING`,
+        [newUserId]
+      );
+
+      userRes = await pool.query<{ id: string; display_name: string; email: string; role: string; password_hash: string | null }>(
+        `SELECT id, display_name, email, role, password_hash
+         FROM users
+         WHERE id = $1`,
+        [newUserId]
+      );
     }
     
     const user = userRes.rows[0];
